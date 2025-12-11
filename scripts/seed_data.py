@@ -10,29 +10,31 @@ from app.services.ingestion import IngestionPipeline
 from app.db.session import engine, Base
 from app.models import sql_models # Ensure models are imported
 from app.services.crawler import CrawlerFactory
-from app.services.parsers.github_trending import GithubTrendingParser
+from app.services.parsers.factory import ParserFactory
 
-async def get_github_trending_repos():
+async def scrape_source(url: str):
     """
-    Scrape GitHub Trending page to get top repo URLs using GithubTrendingParser.
+    Generic scraper using CrawlerFactory and ParserFactory.
     """
-    print("Fetching GitHub Trending...")
-    url = "https://github.com/trending"
+    print(f"Fetching source: {url}...")
     crawler = CrawlerFactory.get_crawler(url)
     try:
         data = await crawler.crawl(url)
         html_content = data.get("html", "")
         if not html_content:
-            print("No HTML content returned from crawler.")
+            print(f"No HTML content returned for {url}")
             return []
             
-        parser = GithubTrendingParser()
-        trending_repos = parser.parse(html_content)
-        
-        print(f"Found {len(trending_repos)} trending repos.")
-        return trending_repos
+        parser = ParserFactory.get_parser(url)
+        if not parser:
+            print(f"No parser configured for {url}")
+            return []
+            
+        links = parser.parse(html_content)
+        print(f"Found {len(links)} links from {url}")
+        return links
     except Exception as e:
-        print(f"Failed to fetch trending: {e}")
+        print(f"Failed to fetch {url}: {e}")
         return []
 
 async def seed():
@@ -43,18 +45,25 @@ async def seed():
 
     pipeline = IngestionPipeline()
     
-    # 1. Standard URLs
-    urls = [
-        "https://blog.langchain.com/rag-production",
-        "https://www.anthropic.com/engineering/prompt-engineering",
+    # Sources to scrape
+    sources = [
+        "https://github.com/trending",
+        "https://levelup.gitconnected.com",
+        "https://blog.langchain.com",
+        "https://www.anthropic.com/engineering"
     ]
     
-    # 2. GitHub Trending
-    trending_urls = await get_github_trending_repos()
-    urls.extend(trending_urls)
+    all_urls = []
+    for source in sources:
+        links = await scrape_source(source)
+        all_urls.extend(links)
     
-    print(f"Starting seeding process for {len(urls)} URLs...")
-    for url in urls:
+    # Remove duplicates
+    all_urls = list(set(all_urls))
+    
+    print(f"Starting seeding process for {len(all_urls)} unique URLs...")
+    # Limit to first 10 for demo speed if needed, but let's try all or a subset
+    for url in all_urls[:20]: # Limit to avoid taking too long in demo
         print(f"Ingesting: {url}")
         await pipeline.ingest_url(url)
     print("Seeding complete!")
