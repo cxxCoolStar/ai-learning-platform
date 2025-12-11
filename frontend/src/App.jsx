@@ -356,39 +356,42 @@ const App = () => {
                                                 >
                                                     <ExternalLink className="w-5 h-5 text-slate-400" />
                                                 </a>
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={(e) => handleFeedbackClick(e, resource.id, 'like')}
-                                                        className="p-2 hover:bg-green-50 text-slate-400 hover:text-green-600 rounded-lg transition-colors"
-                                                        title="推荐"
-                                                    >
-                                                        <ThumbsUp className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => handleFeedbackClick(e, resource.id, 'dislike')}
-                                                        className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
-                                                        title="不感兴趣"
-                                                    >
-                                                        <ThumbsDown className="w-4 h-4" />
-                                                    </button>
-                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            {resource.tags.map((tag, i) => (
-                                                <span
-                                                    key={tag + i}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        // Future: filter by tag
-                                                    }}
-                                                    className="flex items-center gap-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-xs font-medium text-slate-700 cursor-pointer transition-colors"
+                                        <div className="flex items-center justify-between mt-4">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                {resource.tags.map((tag, i) => (
+                                                    <span
+                                                        key={tag + i}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            // Future: filter by tag
+                                                        }}
+                                                        className="flex items-center gap-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-xs font-medium text-slate-700 cursor-pointer transition-colors"
+                                                    >
+                                                        <Tag className="w-3 h-3" />
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex gap-1 shrink-0 ml-2">
+                                                <button
+                                                    onClick={(e) => handleFeedbackClick(e, resource.id, 'like')}
+                                                    className="p-2 hover:bg-green-50 text-slate-400 hover:text-green-600 rounded-lg transition-colors"
+                                                    title="推荐"
                                                 >
-                                                    <Tag className="w-3 h-3" />
-                                                    {tag}
-                                                </span>
-                                            ))}
+                                                    <ThumbsUp className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleFeedbackClick(e, resource.id, 'dislike')}
+                                                    className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                                                    title="不感兴趣"
+                                                >
+                                                    <ThumbsDown className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

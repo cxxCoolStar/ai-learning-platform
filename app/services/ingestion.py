@@ -8,10 +8,11 @@ from app.services.crawler import CrawlerFactory
 from app.rag_services.graph_indexing import GraphIndexingService
 from app.rag_services.vector_indexing import VectorIndexingService
 from app.db.session import SessionLocal
-from app.models.sql_models import Resource
+from app.models.sql_models import Resource, Feedback
 from langchain_core.documents import Document
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+from sqlalchemy import desc
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,42 @@ class IngestionPipeline:
         finally:
             db.close()
 
+    def _get_few_shot_examples(self) -> str:
+        db = SessionLocal()
+        try:
+            # Get recent likes
+            likes = db.query(Feedback, Resource).join(Resource, Feedback.resource_id == Resource.id)\
+                .filter(Feedback.vote_type == "like", Feedback.reason != None)\
+                .order_by(desc(Feedback.created_at)).limit(3).all()
+            
+            # Get recent dislikes
+            dislikes = db.query(Feedback, Resource).join(Resource, Feedback.resource_id == Resource.id)\
+                .filter(Feedback.vote_type == "dislike", Feedback.reason != None)\
+                .order_by(desc(Feedback.created_at)).limit(3).all()
+            
+            if not likes and not dislikes:
+                return ""
+
+            examples_text = "\n\nUser Preferences (Few-Shot Examples):\n"
+            examples_text += "Use these examples to better understand what content is valuable to the user.\n"
+            
+            if likes:
+                examples_text += "\n[Positive Examples (Keep/Recommended)]\n"
+                for feedback, resource in likes:
+                    examples_text += f"- Title: {resource.title}\n  User Reason: {feedback.reason}\n"
+            
+            if dislikes:
+                examples_text += "\n[Negative Examples (Discard/Avoid)]\n"
+                for feedback, resource in dislikes:
+                    examples_text += f"- Title: {resource.title}\n  User Reason: {feedback.reason}\n"
+            
+            return examples_text
+        except Exception as e:
+            logger.error(f"Failed to fetch few-shot examples: {e}")
+            return ""
+        finally:
+            db.close()
+
     async def _analyze_content(self, raw_data: dict) -> dict:
         """
         Use LLM to extract structured metadata from raw text.
@@ -109,21 +146,36 @@ class IngestionPipeline:
         """
         content_snippet = raw_data["content"][:3000] # Limit tokens
         
-        system_prompt = """
+        few_shot_context = self._get_few_shot_examples()
+
+        system_prompt = f"""
         Analyze the following technical content.
         
-        First, determine if this content is related to Artificial Intelligence (AI), Machine Learning (LLM, RAG, etc.), or Data Science.
+        **Filtering Criteria:**
+        You are an advanced AI content filter. The user is specifically interested in **AI Application Development** (e.g., AI Agents, RAG, LLM Engineering, LangChain, LlamaIndex, OpenAI API integration, Multi-Agent Systems).
         
-        If it is NOT AI-related:
-        Return valid JSON with {"is_ai_related": false}.
+        **EXCLUDE** content that is primarily about:
+        - Pure Machine Learning theory (e.g., backpropagation details, math-heavy papers).
+        - Deep Learning model architecture research without application context.
+        - General Data Science, Statistics, or Data Analysis.
+        - Low-level CUDA/GPU optimization (unless directly relevant to inference serving).
+        - General Web Development not related to AI integration.
         
-        If it IS AI-related:
+        {few_shot_context}
+
+        **Instructions:**
+        1. Determine if this content matches the user's specific interest in AI Application Development.
+        
+        If it does NOT match (e.g., it's general web dev, pure ML theory, or unrelated):
+        Return valid JSON with {{"is_ai_related": false}}.
+        
+        If it DOES match (e.g., building Agents, RAG pipelines, using LLMs):
         Extract the following and return valid JSON:
         1. "is_ai_related": true
         2. "summary": A concise summary (in Chinese).
-        3. "recommended_reason": A short reason why this project/article is recommended for an AI learner (in Chinese).
-        4. "concepts": List of main technical concepts (e.g., 'RAG', 'Embeddings').
-        5. "tech_stack": List of tech stack involved (e.g., 'Python', 'Redis').
+        3. "recommended_reason": A short reason why this project/article is recommended for an AI App Developer (in Chinese).
+        4. "concepts": List of main technical concepts (e.g., 'RAG', 'Embeddings', 'Agents').
+        5. "tech_stack": List of tech stack involved (e.g., 'Python', 'LangChain', 'Next.js').
         6. "author": Main Author (if apparent, else 'Unknown').
         
         Input Content:
