@@ -50,7 +50,57 @@ async def seed():
         "https://github.com/trending",
         "https://levelup.gitconnected.com",
         "https://blog.langchain.com",
-        "https://www.anthropic.com/engineering"
+        "https://www.anthropic.com/engineering",
+        # YouTube Channels
+        "https://www.youtube.com/@LatentSpaceTV",
+        "https://www.youtube.com/@AIDailyBrief",
+        "https://www.youtube.com/@LennysPodcast",
+        "https://www.youtube.com/@NoPriorsPodcast",
+        "https://www.youtube.com/@GoogleDeepMind",
+        "https://www.youtube.com/@sequoiacapital",
+        "https://www.youtube.com/@RedpointAI",
+        "https://www.youtube.com/@ycombinator",
+        "https://www.youtube.com/@PeterYangYT",
+        "https://www.youtube.com/@southparkcommons",
+        "https://www.youtube.com/@AndrejKarpathy",
+        "https://www.youtube.com/@AnthropicAI",
+        "https://www.youtube.com/@Google",
+        "https://www.youtube.com/@Every",
+        "https://www.youtube.com/@MattTurck",
+        # X Profiles
+        "https://x.com/zarazhang",
+        "https://x.com/zarazhangrui",
+        "https://x.com/karpathy",
+        "https://x.com/swyx",
+        "https://x.com/gregisenberg",
+        "https://x.com/lennysan",
+        "https://x.com/joshwoodward",
+        "https://x.com/kevinweil",
+        "https://x.com/petergyang",
+        "https://x.com/thenanyu",
+        "https://x.com/madhuguru",
+        "https://x.com/mckaywrigley",
+        "https://x.com/stevenberlin",
+        "https://x.com/AmandaAskell",
+        "https://x.com/catwu",
+        "https://x.com/thariq",
+        "https://x.com/googlelabs",
+        "https://x.com/georgemack",
+        "https://x.com/RaizaMartin",
+        "https://x.com/amasad",
+        "https://x.com/rauchg",
+        "https://x.com/rileybrown_ai",
+        "https://x.com/alexalbert__",
+        "https://x.com/HamelHusain",
+        "https://x.com/levie",
+        "https://x.com/ryo_lu",
+        "https://x.com/garrytan",
+        "https://x.com/lulumeservey",
+        "https://x.com/venturetwins",
+        "https://x.com/mattturck",
+        "https://x.com/joulee",
+        "https://x.com/gabrielpeters",
+        "https://x.com/pjace"
     ]
     
     all_urls = []
@@ -62,8 +112,8 @@ async def seed():
     all_urls = list(set(all_urls))
     
     print(f"Starting seeding process for {len(all_urls)} unique URLs...")
-    # Limit to first 10 for demo speed if needed, but let's try all or a subset
-    for url in all_urls[:20]: # Limit to avoid taking too long in demo
+    # Limit to first 50 for demo speed if needed, but let's try all or a subset
+    for url in all_urls[:50]: # Limit to avoid taking too long in demo
         print(f"Ingesting: {url}")
         await pipeline.ingest_url(url)
     print("Seeding complete!")

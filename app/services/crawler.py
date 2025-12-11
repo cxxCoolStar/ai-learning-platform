@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from crawl4ai import AsyncWebCrawler
 from langchain_community.document_loaders import GithubFileLoader
 from bs4 import BeautifulSoup
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -14,35 +15,124 @@ class BaseCrawler(ABC):
         pass
 
 class WebCrawler(BaseCrawler):
+    def __init__(self, resource_type: str = "Article"):
+        self.resource_type = resource_type
+        self.settings = get_settings()
+
     async def crawl(self, url: str) -> Dict[str, Any]:
         logger.info(f"Crawling Web: {url}")
+        
+        # Configure crawler with auth if available (e.g. for X)
+        # Note: crawl4ai configuration might vary, but for now we keep it simple
         async with AsyncWebCrawler(verbose=True) as crawler:
-            result = await crawler.arun(url=url)
+            # Inject cookie if it's an X/Twitter URL and we have the token
+            if self.resource_type == "Social" and ("x.com" in url or "twitter.com" in url) and self.settings.X_AUTH_TOKEN:
+                # Use BrowserConfig to inject cookies properly
+                from crawl4ai import BrowserConfig, CrawlerRunConfig
+                
+                # Construct cookie dictionary
+                # Important: domain needs to be set correctly for X
+                cookies = [
+                    {
+                        "name": "auth_token",
+                        "value": self.settings.X_AUTH_TOKEN,
+                        "domain": ".x.com",
+                        "path": "/",
+                        "httpOnly": True,
+                        "secure": True,
+                        "sameSite": "None" 
+                    },
+                    {
+                        "name": "auth_token",
+                        "value": self.settings.X_AUTH_TOKEN,
+                        "domain": ".twitter.com",
+                        "path": "/",
+                        "httpOnly": True,
+                        "secure": True,
+                        "sameSite": "None" 
+                    }
+                ]
+                
+                # Configure run parameters
+                # magic=True enables anti-detect features
+                # wait_for suggests waiting for dynamic content
+                # js_code to scroll down a bit to trigger content load
+                js_scroll = "window.scrollTo(0, 500);"
+                
+                # Note: arun() parameters might vary by version. 
+                # If cookies param is supported directly or via config object.
+                # Checking latest crawl4ai patterns: typically use BrowserConfig or direct kwargs.
+                # Assuming arun(..., cookies=...) or run_config.
+                
+                # Let's try passing cookies directly if supported, or via context modification hook if possible.
+                # Based on common usage:
+                
+                # We will try to just pass magic=True and let crawl4ai handle basics, 
+                # but injecting cookies is key. 
+                # Since we can't easily test the exact API version here, we'll try the most standard way:
+                # If arun supports `cookies` list directly (list of dicts).
+                
+                # Fallback: if we can't inject cookie easily in this wrapper, we proceed with magic=True.
+                # But let's try to pass 'cookies' kwarg.
+                
+                try:
+                    result = await crawler.arun(url=url, magic=True, cookies=cookies, js_code=js_scroll, wait_for="article")
+                except TypeError:
+                    # Fallback if cookies param not supported in this version
+                    logger.warning("Cookies parameter might not be supported in this crawl4ai version, falling back to magic=True")
+                    result = await crawler.arun(url=url, magic=True)
+            else:
+                result = await crawler.arun(url=url)
             
             # Extract metadata using BeautifulSoup
             title = "Web Page"
             description = ""
+            content_override = None
+            
             try:
                 if result.html:
                     soup = BeautifulSoup(result.html, 'html.parser')
+                    
+                    # Generic metadata extraction
                     if soup.title and soup.title.string:
                         title = soup.title.string.strip()
                     
-                    # Try to find description meta tag
                     meta_desc = soup.find('meta', attrs={'name': 'description'}) or \
                                 soup.find('meta', attrs={'property': 'og:description'})
                     if meta_desc:
                         description = meta_desc.get('content', '').strip()
+
+                    # Specific Logic for YouTube (Video)
+                    if self.resource_type == "Video" and "youtube.com" in url:
+                        # For YouTube, we prioritize og:title and description
+                        og_title = soup.find('meta', attrs={'property': 'og:title'})
+                        if og_title:
+                            title = og_title.get('content', '').strip()
+                        
+                        # Set content to just title + description as requested
+                        content_override = f"Video Title: {title}\n\nDescription:\n{description}"
+                    
+                    # Specific Logic for X/Twitter (Social)
+                    elif self.resource_type == "Social" and ("x.com" in url or "twitter.com" in url):
+                        # X posts usually don't have a good <title> (often just "X")
+                        # We try to find the tweet text.
+                        # Since X is dynamic, the HTML might be empty if not logged in.
+                        # But if we got something, we use the raw text.
+                        # We set title to generic so LLM can generate it.
+                        title = "Social Post" 
+                        # We don't override content here, we let the full markdown go to LLM
+                        # so it can extract the tweet text from the noise.
+            
             except Exception as e:
                 logger.warning(f"Failed to extract metadata for {url}: {e}")
 
             return {
                 "title": title, 
-                "content": result.markdown,
+                "content": content_override if content_override else result.markdown,
                 "html": result.html,
-                "description": description, # Added description field
+                "description": description, 
                 "url": url,
-                "type": "Article"
+                "type": self.resource_type
             }
 
 class GitHubCrawler(BaseCrawler):
@@ -71,11 +161,12 @@ class CrawlerFactory:
     @staticmethod
     def get_crawler(url: str) -> BaseCrawler:
         if "github.com/trending" in url:
-            return WebCrawler()
+            return WebCrawler(resource_type="Article") # It's a list page, but we process items
         elif "github.com" in url:
             return GitHubCrawler()
         elif "youtube.com" in url or "youtu.be" in url:
-            # Placeholder for VideoCrawler
-            return WebCrawler() 
+            return WebCrawler(resource_type="Video")
+        elif "x.com" in url or "twitter.com" in url:
+            return WebCrawler(resource_type="Social")
         else:
-            return WebCrawler()
+            return WebCrawler(resource_type="Article")

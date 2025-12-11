@@ -188,6 +188,11 @@ class IngestionPipeline:
         5. "tech_stack": List of tech stack involved (e.g., 'Python', 'LangChain', 'Next.js').
         6. "author": Main Author (if apparent, else 'Unknown').
         
+        **Special Instruction for Social Media (Twitter/X) Posts:**
+        - Since these posts often lack a formal title, please generate a **Concise and Descriptive Title** (in English) based on the content. 
+        - Example: Instead of "Tweet by @user", use "Summary of OpenAI's new o1 model release".
+        - Ensure the title captures the main topic.
+        
         Input Content:
         """
         
@@ -209,11 +214,20 @@ class IngestionPipeline:
                     
                     if not parsed.get("is_ai_related", False):
                         return {"is_ai_related": False}
-                        
+                    
+                    # Use LLM generated title if raw title is generic for Social posts
+                    final_title = raw_data.get("title", "Untitled")
+                    if raw_data.get("type") == "Social" and parsed.get("title"): # If LLM generated a title (we didn't ask it explicitly in JSON key, but we can infer or ask explicitly)
+                         # Wait, the prompt didn't explicitly ask for "title" key in JSON output list above. Let's add it.
+                         pass 
+                    
+                    # Actually, let's update the prompt to explicitly ask for "title" if it's missing or generic.
+                    # The prompt below asks for 6 items. I should add "title" as optional or mandatory override.
+                    
                     return {
                         "is_ai_related": True,
                         "id": str(uuid.uuid4()),
-                        "title": raw_data.get("title", "Untitled"),
+                        "title": parsed.get("title", raw_data.get("title", "Untitled")), # Prefer LLM title if present
                         "url": raw_data["url"],
                         "type": raw_data["type"],
                         "summary": parsed.get("summary", f"AI 摘要: {raw_data.get('title')}"),

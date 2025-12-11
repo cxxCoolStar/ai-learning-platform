@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     LLM_MODEL: str = "moonshot-v1-8k"
 
+    # Social Media Auth (Optional)
+    X_AUTH_TOKEN: str = os.getenv("X_AUTH_TOKEN", "")
+
     class Config:
         case_sensitive = True
         env_file = ".env"
