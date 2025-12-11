@@ -14,6 +14,16 @@ class BaseCrawler(ABC):
     async def crawl(self, url: str) -> Dict[str, Any]:
         pass
 
+# Import XApiCrawler AFTER BaseCrawler is defined to avoid circular import
+try:
+    from app.services.x_api_crawler import XApiCrawler
+except ImportError:
+    # If XApiCrawler fails to import (e.g. BaseCrawler not found yet), handle it.
+    # But since we are in the same file that defines BaseCrawler, this is tricky.
+    # The issue is x_api_crawler.py imports BaseCrawler from THIS file.
+    # Solution: Move BaseCrawler to a separate file or use type checking imports.
+    pass
+
 class WebCrawler(BaseCrawler):
     def __init__(self, resource_type: str = "Article"):
         self.resource_type = resource_type
@@ -76,11 +86,19 @@ class WebCrawler(BaseCrawler):
                 # But let's try to pass 'cookies' kwarg.
                 
                 try:
-                    result = await crawler.arun(url=url, magic=True, cookies=cookies, js_code=js_scroll, wait_for="article")
+                    # Removed wait_for="article" because X structure is complex and dynamic
+                    # wait_for="article" often times out if the page loads as a feed or uses different tags.
+                    # Using a simple css selector or just waiting for network idle is safer.
+                    # "main" is usually a safer bet for X, or just wait for body.
+                    result = await crawler.arun(url=url, magic=True, cookies=cookies, js_code=js_scroll, wait_for="css:main")
                 except TypeError:
                     # Fallback if cookies param not supported in this version
                     logger.warning("Cookies parameter might not be supported in this crawl4ai version, falling back to magic=True")
                     result = await crawler.arun(url=url, magic=True)
+                except Exception as e:
+                     logger.warning(f"Crawl failed with wait condition: {e}. Retrying without wait_for.")
+                     # Retry without strict wait condition
+                     result = await crawler.arun(url=url, magic=True, cookies=cookies, js_code=js_scroll)
             else:
                 result = await crawler.arun(url=url)
             
@@ -167,6 +185,10 @@ class CrawlerFactory:
         elif "youtube.com" in url or "youtu.be" in url:
             return WebCrawler(resource_type="Video")
         elif "x.com" in url or "twitter.com" in url:
+            # Check if API is configured, otherwise fallback to WebCrawler
+            settings = get_settings()
+            if settings.X_BEARER_TOKEN:
+                return XApiCrawler()
             return WebCrawler(resource_type="Social")
         else:
             return WebCrawler(resource_type="Article")

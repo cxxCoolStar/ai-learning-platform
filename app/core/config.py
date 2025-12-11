@@ -26,6 +26,13 @@ class Settings(BaseSettings):
 
     # Social Media Auth (Optional)
     X_AUTH_TOKEN: str = os.getenv("X_AUTH_TOKEN", "")
+    
+    # X (Twitter) API V2 Credentials
+    X_API_KEY: str = os.getenv("X_API_KEY", "")
+    X_API_SECRET: str = os.getenv("X_API_SECRET", "")
+    X_ACCESS_TOKEN: str = os.getenv("X_ACCESS_TOKEN", "")
+    X_ACCESS_TOKEN_SECRET: str = os.getenv("X_ACCESS_TOKEN_SECRET", "")
+    X_BEARER_TOKEN: str = os.getenv("X_BEARER_TOKEN", "")
 
     class Config:
         case_sensitive = True
