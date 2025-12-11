@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from abc import ABC, abstractmethod
 from crawl4ai import AsyncWebCrawler
 from langchain_community.document_loaders import GithubFileLoader
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +18,29 @@ class WebCrawler(BaseCrawler):
         logger.info(f"Crawling Web: {url}")
         async with AsyncWebCrawler(verbose=True) as crawler:
             result = await crawler.arun(url=url)
+            
+            # Extract metadata using BeautifulSoup
+            title = "Web Page"
+            description = ""
+            try:
+                if result.html:
+                    soup = BeautifulSoup(result.html, 'html.parser')
+                    if soup.title and soup.title.string:
+                        title = soup.title.string.strip()
+                    
+                    # Try to find description meta tag
+                    meta_desc = soup.find('meta', attrs={'name': 'description'}) or \
+                                soup.find('meta', attrs={'property': 'og:description'})
+                    if meta_desc:
+                        description = meta_desc.get('content', '').strip()
+            except Exception as e:
+                logger.warning(f"Failed to extract metadata for {url}: {e}")
+
             return {
-                "title": "Web Page", 
+                "title": title, 
                 "content": result.markdown,
-                "html": result.html, # Added HTML field
+                "html": result.html,
+                "description": description, # Added description field
                 "url": url,
                 "type": "Article"
             }

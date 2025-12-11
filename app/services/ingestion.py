@@ -34,6 +34,16 @@ class IngestionPipeline:
 
     async def ingest_url(self, url: str):
         logger.info(f"Starting ingestion for: {url}")
+
+        # Check if resource already exists
+        db = SessionLocal()
+        try:
+            existing = db.query(Resource).filter(Resource.url == url).first()
+            if existing:
+                logger.info(f"Resource already exists, skipping crawl: {url}")
+                return True
+        finally:
+            db.close()
         
         # 1. Crawl
         crawler = CrawlerFactory.get_crawler(url)
@@ -233,7 +243,7 @@ class IngestionPipeline:
                 "title": raw_data.get("title", "Untitled"),
                 "url": raw_data["url"],
                 "type": raw_data["type"],
-                "summary": f"AI 摘要: {raw_data.get('title')}",
+                "summary": raw_data.get("description") or f"AI 摘要: {raw_data.get('title')}",
                 "recommended_reason": f"推荐理由: 这是一个关于 {raw_data.get('title')} 的优质资源，适合深入学习 AI 技术。",
                 "author": "Unknown",
                 "concepts": ["AI", "LLM"], 

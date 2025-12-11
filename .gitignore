@@ -45,3 +45,6 @@ tmp
 ### 忽略本地配置文件
 application-local-*.yml
 /examples/*
+.env
+.gitignore
+.gitignore
