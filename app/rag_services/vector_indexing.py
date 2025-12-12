@@ -2,7 +2,7 @@ import logging
 import time
 from typing import List, Dict, Any, Optional
 from langchain_core.documents import Document
-# from langchain_openai import OpenAIEmbeddings # Commented out
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.embeddings import FakeEmbeddings # Use Fake for now
 
 from app.core.config import get_settings
@@ -18,13 +18,18 @@ class VectorIndexingService:
     def __init__(self, collection_name: str = "learning_resources"):
         self.settings = get_settings()
         self.collection_name = collection_name
-        # Using FakeEmbeddings to bypass OpenAI Auth
-        self.embeddings = FakeEmbeddings(size=1536)
-        # self.embeddings = OpenAIEmbeddings(
-        #     model="text-embedding-3-small",
-        #     openai_api_key=self.settings.OPENAI_API_KEY,
-        #     base_url=self.settings.OPENAI_BASE_URL
-        # )
+        # Use real OpenAI Embeddings for proper semantic search
+        try:
+            self.embeddings = OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                openai_api_key=self.settings.OPENAI_API_KEY,
+                base_url=self.settings.OPENAI_BASE_URL
+            )
+            # Test embedding to check if API is accessible
+            self.embeddings.embed_query("test")
+        except Exception as e:
+            logger.warning(f"OpenAI Embeddings failed (likely 403/Quota): {e}. Falling back to FakeEmbeddings.")
+            self.embeddings = FakeEmbeddings(size=1536)
         
         self.ensure_collection()
 
