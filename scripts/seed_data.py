@@ -53,6 +53,7 @@ async def seed():
     # Sources to scrape
     sources = [
         "https://github.com/trending",
+        "https://github.com/thedotmack/claude-mem", # Explicitly add claude-mem
         "https://levelup.gitconnected.com",
         "https://blog.langchain.com",
         "https://www.anthropic.com/engineering",

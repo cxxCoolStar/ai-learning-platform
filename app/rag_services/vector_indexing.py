@@ -2,8 +2,9 @@ import logging
 import time
 from typing import List, Dict, Any, Optional
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
-from langchain_core.embeddings import FakeEmbeddings # Use Fake for now
+from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_openai import OpenAIEmbeddings # Replaced with HuggingFace
+from langchain_core.embeddings import FakeEmbeddings 
 
 from app.core.config import get_settings
 from pymilvus import Collection, connections, utility, CollectionSchema, FieldSchema, DataType
@@ -18,18 +19,22 @@ class VectorIndexingService:
     def __init__(self, collection_name: str = "learning_resources"):
         self.settings = get_settings()
         self.collection_name = collection_name
-        # Use real OpenAI Embeddings for proper semantic search
+        
+        # Use BAAI/bge-small-zh-v1.5 (Local/HuggingFace)
+        # This model is excellent for Chinese/English retrieval and small enough for CPU/Light GPU
         try:
-            self.embeddings = OpenAIEmbeddings(
-                model="text-embedding-3-small",
-                openai_api_key=self.settings.OPENAI_API_KEY,
-                base_url=self.settings.OPENAI_BASE_URL
+            logger.info("Initializing HuggingFace Embeddings (BAAI/bge-small-zh-v1.5)...")
+            self.embeddings = HuggingFaceEmbeddings(
+                model_name="BAAI/bge-small-zh-v1.5",
+                model_kwargs={'device': 'cpu'}, # Use 'cuda' if GPU available
+                encode_kwargs={'normalize_embeddings': True}
             )
-            # Test embedding to check if API is accessible
+            # Test embedding
             self.embeddings.embed_query("test")
+            logger.info("HuggingFace Embeddings initialized successfully.")
         except Exception as e:
-            logger.warning(f"OpenAI Embeddings failed (likely 403/Quota): {e}. Falling back to FakeEmbeddings.")
-            self.embeddings = FakeEmbeddings(size=1536)
+            logger.error(f"OpenAI Embeddings connection failed: {e}")
+            raise e
         
         self.ensure_collection()
 
@@ -44,7 +49,7 @@ class VectorIndexingService:
                 
                 fields = [
                     FieldSchema(name="id", dtype=DataType.VARCHAR, max_length=64, is_primary=True),
-                    FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=1536), # OpenAI embedding dim
+                    FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=512), # BGE-small-zh dimension
                     FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=8192),
                     FieldSchema(name="resource_id", dtype=DataType.VARCHAR, max_length=64),
                     FieldSchema(name="type", dtype=DataType.VARCHAR, max_length=32),

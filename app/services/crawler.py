@@ -202,8 +202,7 @@ class WebCrawler(BaseCrawler):
 
 class GitHubCrawler(BaseCrawler):
     """
-    Simple GitHub crawler using LangChain loader or direct API if needed.
-    For deep analysis, we might want to clone and parse, but for now specific file loading.
+    GitHub crawler that fetches README content via raw.githubusercontent.com
     """
     def __init__(self, github_token: str = None):
         self.github_token = github_token
@@ -212,22 +211,164 @@ class GitHubCrawler(BaseCrawler):
         # URL format: https://github.com/user/repo
         logger.info(f"Crawling GitHub: {url}")
         
-        # Extract owner as author
+        # Extract owner and repo
         parts = url.rstrip('/').split('/')
         author = "Unknown"
-        if len(parts) >= 4 and parts[2] == "github.com":
-             author = parts[3]
+        repo_name = "Unknown"
+        
+        if len(parts) >= 5 and parts[2] == "github.com":
+            author = parts[3]
+            repo_name = parts[4]
+        elif len(parts) == 4 and parts[2] == "github.com":
+             # Edge case: https://github.com/owner (profile) - not handled here usually
+             pass
 
-        # Note: Real implementation would use GitHub API to get repo metadata + README
-        # For simplicity in this demo, we'll return a placeholder structure
-        # In a real app, use PyGithub or standard requests
+        content = await self._fetch_readme(author, repo_name)
+        
+        if not content:
+            # Fallback message
+            content = f"Repository {url}. Description not available or README could not be fetched."
+
         return {
-            "title": url.split("/")[-1],
-            "content": f"Repository content for {url}. (Mocked for now with AI keywords to pass filter: AI, LLM, RAG, Agent, Machine Learning)",
+            "title": repo_name if repo_name != "Unknown" else url.split("/")[-1],
+            "content": content,
             "url": url,
             "type": "Code",
             "author": author,
-            "tech_stack": ["Python", "Docker"] # In reality, extract this from files
+            "tech_stack": [] # In reality, extract this from files or analyzer
+        }
+
+    async def _fetch_readme(self, owner: str, repo: str) -> str:
+        import httpx
+        if owner == "Unknown" or repo == "Unknown":
+            return ""
+            
+        base_url = f"https://raw.githubusercontent.com/{owner}/{repo}"
+        branches = ["main", "master"]
+        filenames = ["README.md", "readme.md", "README.MD"]
+        
+        async with httpx.AsyncClient() as client:
+            for branch in branches:
+                for filename in filenames:
+                    try:
+                        url = f"{base_url}/{branch}/{filename}"
+                        resp = await client.get(url, follow_redirects=True)
+                        if resp.status_code == 200:
+                            logger.info(f"Fetched README from {url}")
+                            return resp.text
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch {url}: {e}")
+        return ""
+
+class YouTubeCrawler(BaseCrawler):
+    """
+    YouTube crawler that fetches subtitles/transcripts using youtube-transcript-api
+    """
+    def __init__(self):
+        pass
+
+    async def crawl(self, url: str) -> Dict[str, Any]:
+        logger.info(f"Crawling YouTube: {url}")
+        from youtube_transcript_api import YouTubeTranscriptApi
+        import re
+
+        # Extract video ID
+        video_id = None
+        if "v=" in url:
+            video_id = url.split("v=")[1].split("&")[0]
+        elif "youtu.be/" in url:
+            video_id = url.split("youtu.be/")[1].split("?")[0]
+            
+        if not video_id:
+            logger.warning(f"Could not extract video ID from {url}")
+            return {
+                "title": "Unknown Video",
+                "content": f"Could not extract video ID from {url}",
+                "url": url,
+                "type": "Video",
+                "author": "Unknown"
+            }
+
+        # Fetch Transcript
+        transcript_text = ""
+        try:
+            # Run blocking call in executor
+            def get_transcript_sync(vid):
+                # Adapted for the installed version of youtube_transcript_api
+                # which requires instantiation and returns objects
+                api = YouTubeTranscriptApi()
+                return api.fetch(vid, languages=['zh', 'en', 'zh-Hans', 'zh-Hant'])
+
+            transcript = await asyncio.to_thread(get_transcript_sync, video_id)
+            
+            lines = []
+            for entry in transcript:
+                # Format: [Start Time] Text
+                # Entry is object with .start, .text attributes
+                seconds = int(entry.start)
+                timestamp = f"{seconds//60:02d}:{seconds%60:02d}"
+                lines.append(f"[{timestamp}] {entry.text}")
+            
+            transcript_text = "\n".join(lines)
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch transcript for {video_id}: {e}")
+            transcript_text = f"Transcript not available. Error: {e}"
+
+        # We still want metadata (Title, Author, etc.)
+        # Since we don't want to use heavy browser automation just for title if possible,
+        # let's try a lightweight fetch first or fallback to WebCrawler logic if needed.
+        # But for simplicity, we can use a lightweight method here or reuse WebCrawler?
+        # Reusing WebCrawler for metadata + Transcript for content seems best but double request.
+        # Let's just use basic requests + BeautifulSoup for metadata to keep it fast.
+        
+        title = "YouTube Video"
+        description = ""
+        author = "Unknown"
+        
+        try:
+            # Use WebCrawler's lightweight approach (just requests if we didn't use crawl4ai)
+            # But here we are independent.
+            # Let's try to get the title from oEmbed or just the page.
+            # Simple GET request
+            import httpx
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url, follow_redirects=True)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    
+                    # Title
+                    og_title = soup.find('meta', attrs={'property': 'og:title'})
+                    if og_title:
+                        title = og_title.get('content', '').strip()
+                    elif soup.title:
+                        title = soup.title.string.replace(" - YouTube", "").strip()
+                        
+                    # Description
+                    og_desc = soup.find('meta', attrs={'property': 'og:description'})
+                    if og_desc:
+                        description = og_desc.get('content', '').strip()
+                        
+                    # Author
+                    # YouTube source is often complex JS, but itemprop="author" might exist
+                    author_tag = soup.find(attrs={'itemprop': 'author'})
+                    if author_tag:
+                         name_tag = author_tag.find(attrs={'itemprop': 'name'})
+                         if name_tag:
+                             author = name_tag.get('content', '').strip()
+        except Exception as e:
+            logger.warning(f"Failed to fetch metadata for {url}: {e}")
+
+        # Combine Transcript into Content
+        content = f"Video Title: {title}\nAuthor: {author}\n\nDescription:\n{description}\n\nTranscript:\n{transcript_text}"
+
+        return {
+            "title": title,
+            "content": content,
+            "url": url,
+            "type": "Video",
+            "author": author,
+            "description": description
         }
 
 class CrawlerFactory:
@@ -238,7 +379,11 @@ class CrawlerFactory:
         elif "github.com" in url:
             return GitHubCrawler()
         elif "youtube.com" in url or "youtu.be" in url:
-            return WebCrawler(resource_type="Video")
+            # Distinguish between Video and Channel/Playlist
+            if "watch?v=" in url or "youtu.be/" in url:
+                return YouTubeCrawler()
+            else:
+                return WebCrawler(resource_type="Video")
         elif "x.com" in url or "twitter.com" in url:
             # Check if API is configured AND it's a specific tweet URL (has /status/)
             # If it's a profile URL (no /status/), we must use WebCrawler to scrape the feed

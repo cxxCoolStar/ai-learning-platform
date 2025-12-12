@@ -47,6 +47,9 @@ class ChatService:
           [访问链接](URL)
         - Do NOT repeat the title in the link text.
         - If the user asks a technical question, synthesize the answer from the context and cite sources using [1], [2] notation.
+        - **IMPORTANT FOR VIDEO CITATIONS:** If the retrieved information comes from a YouTube video transcript (Type: Video) and the content contains timestamps (e.g., [00:02]), you MUST include the timestamp in your citation.
+          - Format: 来源[视频名称] [MM:SS]
+          - Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])..."
         
         Answer:
         """)
