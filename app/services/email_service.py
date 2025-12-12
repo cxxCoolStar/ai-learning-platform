@@ -14,7 +14,7 @@ class EmailService:
         self.user = self.settings.MAIL_USERNAME
         self.password = self.settings.MAIL_PASSWORD
         
-    def send_notification(self, to_email: str, subject: str, content: str):
+    def send_notification(self, to_email: str, subject: str, content: str, content_html: str = None):
         """
         Send email notification using QQ Mail (SMTP_SSL)
         """
@@ -22,12 +22,17 @@ class EmailService:
         password = self.password
         
         try:
-            msg = MIMEMultipart()
+            msg = MIMEMultipart('alternative')
             msg['From'] = sender
             msg['To'] = to_email
             msg['Subject'] = subject
             
+            # Attach plain text version
             msg.attach(MIMEText(content, 'plain'))
+            
+            # Attach HTML version if provided
+            if content_html:
+                msg.attach(MIMEText(content_html, 'html'))
             
             # Connect to QQ Mail
             if self.smtp_port == 465:

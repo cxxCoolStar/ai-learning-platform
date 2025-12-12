@@ -13,8 +13,10 @@ from app.models.sql_models import Resource, Feedback
 from langchain_core.documents import Document
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 from sqlalchemy import desc
 from app.core.config import get_settings
+import html2text
 
 logger = logging.getLogger(__name__)
 
@@ -72,18 +74,127 @@ class IngestionPipeline:
         self.graph_service.index_resource(analyzed_data)
         
         # 5. Index to Vector (Milvus)
-        # Create a document chunk for the content
-        doc = Document(
-            page_content=analyzed_data.get("summary", "") + "\n\n" + raw_data.get("content", "")[:2000],
-            metadata={
-                "id": str(uuid.uuid4()),
-                "resource_id": analyzed_data.get("id", str(uuid.uuid4())), # Use .get() to avoid KeyError if analysis fails/returns partial
-                "type": analyzed_data.get("type", "Article"),
-                "title": analyzed_data.get("title", "Untitled"),
-                "url": analyzed_data.get("url", "") # Added URL to metadata
-            }
-        )
-        self.vector_service.add_documents([doc])
+        # Create document chunks for the content
+        # Combine summary and content for full context
+        summary_text = analyzed_data.get("summary", "")
+        raw_content = raw_data.get("content", "")
+        
+        # Determine content format and convert to Markdown if necessary
+        is_markdown = False
+        content_to_split = raw_content
+        
+        # Check if it's already markdown (e.g. from GitHub API) or needs conversion
+        if analyzed_data.get("type") == "Code" or "readme" in url.lower() or raw_content.strip().startswith("#"):
+            is_markdown = True
+        else:
+            # For HTML articles, convert to Markdown to use structural splitting
+            # If raw_content is HTML (crawler usually returns text, but let's be safe if we change crawler later)
+            # Actually, our Crawler currently returns text content via readability or similar.
+            # If it's plain text, we can't do much structure. 
+            # BUT, if we have HTML available in raw_data (we do!), let's use it.
+            html_source = raw_data.get("html", "")
+            if html_source and len(html_source) > 100:
+                h = html2text.HTML2Text()
+                h.ignore_links = False
+                h.ignore_images = True
+                try:
+                    content_to_split = h.handle(html_source)
+                    is_markdown = True
+                    logger.info(f"Converted HTML to Markdown for structural splitting: {url}")
+                except Exception as e:
+                    logger.warning(f"HTML to Markdown conversion failed: {e}")
+            
+        
+        # Strategy: Structural Chunking (Markdown) -> Fallback to Recursive
+        # 1. First, split by Markdown headers to preserve semantic structure
+        headers_to_split_on = [
+            ("#", "Header 1"),
+            ("##", "Header 2"),
+            ("###", "Header 3"),
+        ]
+        
+        final_chunks = []
+        
+        # Always add summary as the first chunk (high value)
+        if summary_text:
+            final_chunks.append(Document(page_content=f"Summary: {summary_text}", metadata={"section": "Summary"}))
+
+        if is_markdown:
+            markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+            # Split main content
+            md_docs = markdown_splitter.split_text(content_to_split)
+            
+            # 2. Then, recursively split large chunks
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len,
+            )
+            
+            for doc in md_docs:
+                # If a section is too large, split it further
+                if len(doc.page_content) > 1000:
+                    sub_chunks = text_splitter.split_documents([doc])
+                    final_chunks.extend(sub_chunks)
+                else:
+                    final_chunks.append(doc)
+        else:
+             # Fallback for plain text (Recursive only)
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len,
+            )
+            plain_chunks = text_splitter.create_documents([content_to_split])
+            final_chunks.extend(plain_chunks)
+        
+        docs = []
+        resource_id = analyzed_data.get("id", str(uuid.uuid4()))
+        
+        for i, chunk in enumerate(final_chunks):
+            # Merge header metadata into content for context
+            header_context = ""
+            if "Header 1" in chunk.metadata:
+                header_context += f"{chunk.metadata['Header 1']} > "
+            if "Header 2" in chunk.metadata:
+                header_context += f"{chunk.metadata['Header 2']} > "
+            if "Header 3" in chunk.metadata:
+                header_context += f"{chunk.metadata['Header 3']}"
+            
+            # Construct fully context-aware content
+            # 1. Global Context (Title + Summary)
+            doc_context = f"Document Title: {analyzed_data.get('title', 'Untitled')}\n"
+            if summary_text:
+                # Use first 200 chars of summary to avoid token bloat
+                doc_context += f"Document Summary: {summary_text[:200]}...\n"
+            
+            # 2. Structural Context (Headers)
+            if header_context:
+                doc_context += f"Section Path: {header_context}\n"
+            
+            # 3. Combine with original chunk content
+            content_with_context = f"{doc_context}\nContent:\n{chunk.page_content}"
+
+            doc = Document(
+                page_content=content_with_context,
+                metadata={
+                    "id": str(uuid.uuid4()), # Unique ID for each vector chunk
+                    "resource_id": resource_id,
+                    "chunk_index": i,
+                    "type": analyzed_data.get("type", "Article"),
+                    "title": analyzed_data.get("title", "Untitled"),
+                    "url": analyzed_data.get("url", ""),
+                    # Preserve markdown header metadata
+                    **chunk.metadata 
+                }
+            )
+            docs.append(doc)
+
+        if docs:
+            self.vector_service.add_documents(docs)
+            logger.info(f"Indexed {len(docs)} chunks to Milvus for {url}")
+        else:
+            logger.warning(f"No content to index for {url}")
         
         logger.info(f"Ingestion complete for {url}")
         return True

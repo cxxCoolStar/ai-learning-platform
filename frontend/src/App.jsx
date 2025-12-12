@@ -68,6 +68,7 @@ const App = () => {
         url: r.url,
         description: r.summary,
         recommended_reason: r.recommended_reason, // Map this field
+        author: r.author, // Map author
         tags: [...(r.concepts || []), ...(r.tech_stack || [])],
         stars: null,
         updatedAt: r.published_at ? new Date(r.published_at).toLocaleDateString() : 'Recently',
@@ -319,6 +320,10 @@ const App = () => {
                                                     )}
 
                                                     <div className="flex items-center gap-4 text-xs text-slate-500">
+                                                        <div className="flex items-center gap-1 font-medium bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                                                            <span>{resource.author || 'Unknown Author'}</span>
+                                                        </div>
+
                                                         <div className="flex items-center gap-1">
                                                             <Calendar className="w-3 h-3" />
                                                             <span>{resource.updatedAt}</span>

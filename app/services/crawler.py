@@ -240,9 +240,10 @@ class CrawlerFactory:
         elif "youtube.com" in url or "youtu.be" in url:
             return WebCrawler(resource_type="Video")
         elif "x.com" in url or "twitter.com" in url:
-            # Check if API is configured, otherwise fallback to WebCrawler
+            # Check if API is configured AND it's a specific tweet URL (has /status/)
+            # If it's a profile URL (no /status/), we must use WebCrawler to scrape the feed
             settings = get_settings()
-            if settings.X_BEARER_TOKEN:
+            if settings.X_BEARER_TOKEN and "/status/" in url:
                 return XApiCrawler()
             return WebCrawler(resource_type="Social")
         else:

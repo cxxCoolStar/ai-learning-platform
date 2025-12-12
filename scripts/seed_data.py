@@ -112,8 +112,7 @@ async def seed():
     all_urls = list(set(all_urls))
     
     print(f"Starting seeding process for {len(all_urls)} unique URLs...")
-    # Limit to first 50 for demo speed if needed, but let's try all or a subset
-    for url in all_urls[:50]: # Limit to avoid taking too long in demo
+    for url in all_urls[:200]: 
         print(f"Ingesting: {url}")
         await pipeline.ingest_url(url)
     print("Seeding complete!")

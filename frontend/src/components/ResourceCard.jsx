@@ -27,7 +27,9 @@ const ResourceCard = ({ resource }) => {
                             {resource.title}
                         </h3>
                         <div className="flex items-center space-x-2 text-xs text-slate-500 mt-1">
-                            <span>{resource.author || 'Unknown'}</span>
+                            <span className="flex items-center font-medium text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+                                {resource.author || 'Unknown Author'}
+                            </span>
                             <span>•</span>
                             <span className="flex items-center">
                                 <Clock className="w-3 h-3 mr-1" />
@@ -43,9 +45,16 @@ const ResourceCard = ({ resource }) => {
                 </span>
             </div>
 
-            <p className="text-slate-600 text-sm mb-4 line-clamp-2 h-10">
+            <p className="text-slate-600 text-sm mb-3 line-clamp-2 h-10">
                 {resource.summary || 'No summary available.'}
             </p>
+
+            {resource.recommended_reason && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 mb-4 text-xs text-indigo-700">
+                    <span className="font-semibold mr-1">💡 推荐理由:</span>
+                    {resource.recommended_reason}
+                </div>
+            )}
 
             <div className="flex flex-wrap gap-2 mb-4 h-16 overflow-hidden">
                 {resource.concepts?.slice(0, 3).map((tag, i) => (
