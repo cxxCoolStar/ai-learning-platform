@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     X_ACCESS_TOKEN_SECRET: str = os.getenv("X_ACCESS_TOKEN_SECRET", "")
     X_BEARER_TOKEN: str = os.getenv("X_BEARER_TOKEN", "")
 
+    # Mail
+    MAIL_HOST: str = os.getenv("MAIL_HOST", "smtp.qq.com")
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", 587))
+
     class Config:
         case_sensitive = True
         env_file = ".env"

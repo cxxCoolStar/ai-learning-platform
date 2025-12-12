@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Maximize2, Minimize2, Loader2, Sparkles, MessageSquare } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { sendChatMessage } from '../api';
 
 const ChatWindow = () => {
@@ -95,12 +97,37 @@ const ChatWindow = () => {
                             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                             <div
-                                className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.role === 'user'
+                                className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user'
                                         ? 'bg-blue-600 text-white rounded-tr-none'
                                         : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none shadow-sm'
                                     }`}
                             >
-                                {msg.content}
+                                {msg.role === 'user' ? (
+                                    msg.content
+                                ) : (
+                                    <div className="markdown-content">
+                                        <ReactMarkdown 
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                                a: ({node, ...props}) => <a {...props} className="text-blue-600 hover:underline break-all" target="_blank" rel="noopener noreferrer" />,
+                                                ul: ({node, ...props}) => <ul {...props} className="list-disc pl-4 my-2 space-y-1" />,
+                                                ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-4 my-2 space-y-1" />,
+                                                p: ({node, ...props}) => <p {...props} className="my-1 leading-relaxed" />,
+                                                code: ({node, inline, className, children, ...props}) => {
+                                                    return inline ? (
+                                                        <code className="bg-slate-100 px-1 py-0.5 rounded text-xs font-mono text-slate-800" {...props}>{children}</code>
+                                                    ) : (
+                                                        <pre className="bg-slate-800 text-slate-100 p-2 rounded-lg my-2 overflow-x-auto text-xs">
+                                                            <code {...props}>{children}</code>
+                                                        </pre>
+                                                    )
+                                                }
+                                            }}
+                                        >
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}

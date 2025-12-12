@@ -1,3 +1,4 @@
+from dateutil import parser
 import logging
 import uuid
 import json
@@ -31,6 +32,14 @@ class IngestionPipeline:
             )
         except Exception:
             self.llm = None
+
+    def _resolve_date(self, date_str: str) -> str:
+        if not date_str:
+            return datetime.now().isoformat()
+        try:
+            return parser.parse(str(date_str)).isoformat()
+        except Exception:
+            return datetime.now().isoformat()
 
     async def ingest_url(self, url: str):
         logger.info(f"Starting ingestion for: {url}")
@@ -70,7 +79,8 @@ class IngestionPipeline:
                 "id": str(uuid.uuid4()),
                 "resource_id": analyzed_data.get("id", str(uuid.uuid4())), # Use .get() to avoid KeyError if analysis fails/returns partial
                 "type": analyzed_data.get("type", "Article"),
-                "title": analyzed_data.get("title", "Untitled")
+                "title": analyzed_data.get("title", "Untitled"),
+                "url": analyzed_data.get("url", "") # Added URL to metadata
             }
         )
         self.vector_service.add_documents([doc])
@@ -154,7 +164,12 @@ class IngestionPipeline:
         Use LLM to extract structured metadata from raw text.
         Also filters non-AI content and generates recommended reason.
         """
-        content_snippet = raw_data["content"][:3000] # Limit tokens
+        # Prepare input content with metadata hint to help LLM
+        input_text = f"Title: {raw_data.get('title', 'Unknown')}\n"
+        if raw_data.get('author') and raw_data.get('author') != 'Unknown':
+            input_text += f"Extracted Author: {raw_data['author']}\n"
+        input_text += f"URL: {raw_data.get('url', '')}\n\n"
+        input_text += raw_data.get("content", "")[:3000] # Limit tokens
         
         few_shot_context = self._get_few_shot_examples()
 
@@ -201,7 +216,7 @@ class IngestionPipeline:
                 try:
                     response = await self.llm.ainvoke([
                         SystemMessage(content=system_prompt), 
-                        HumanMessage(content=content_snippet)
+                        HumanMessage(content=input_text)
                     ])
                     # Clean up response content if it contains markdown code blocks
                     content = response.content
@@ -217,38 +232,39 @@ class IngestionPipeline:
                     
                     # Use LLM generated title if raw title is generic for Social posts
                     final_title = raw_data.get("title", "Untitled")
-                    if raw_data.get("type") == "Social" and parsed.get("title"): # If LLM generated a title (we didn't ask it explicitly in JSON key, but we can infer or ask explicitly)
-                         # Wait, the prompt didn't explicitly ask for "title" key in JSON output list above. Let's add it.
+                    if raw_data.get("type") == "Social" and parsed.get("title"): 
+                         # Use LLM title for social posts
                          pass 
                     
-                    # Actually, let's update the prompt to explicitly ask for "title" if it's missing or generic.
-                    # The prompt below asks for 6 items. I should add "title" as optional or mandatory override.
-                    
+                    # Resolve Author: Prefer LLM parsed, fallback to crawler extracted
+                    final_author = parsed.get("author")
+                    if not final_author or final_author == "Unknown":
+                        final_author = raw_data.get("author", "Unknown")
+
                     return {
                         "is_ai_related": True,
                         "id": str(uuid.uuid4()),
-                        "title": parsed.get("title", raw_data.get("title", "Untitled")), # Prefer LLM title if present
+                        "title": parsed.get("title", raw_data.get("title", "Untitled")), 
                         "url": raw_data["url"],
                         "type": raw_data["type"],
                         "summary": parsed.get("summary", f"AI 摘要: {raw_data.get('title')}"),
                         "recommended_reason": parsed.get("recommended_reason", f"推荐理由: 这是一个关于 {raw_data.get('title')} 的优质资源，适合深入学习 AI 技术。"),
-                        "author": parsed.get("author", "Unknown"),
+                        "author": final_author,
                         "concepts": parsed.get("concepts", ["AI"]), 
                         "tech_stack": parsed.get("tech_stack", raw_data.get("tech_stack", ["General"])),
-                        "published_at": datetime.now().isoformat()
+                        "published_at": self._resolve_date(raw_data.get("published_at"))
                     }
                 except Exception as e:
                     logger.error(f"LLM analysis failed: {e}")
                     # Fallback to heuristic if LLM fails but we want to be lenient or debug
                     pass
-
+            
             # Fallback / Mock logic if LLM not available or failed
             # Simple keyword-based heuristic for the "LLM" part in this demo without burning tokens
-            is_ai = any(kw in raw_data["content"].lower() or kw in raw_data["title"].lower() for kw in ["ai", "gpt", "llm", "rag", "transformer", "learning", "model", "prompt"])
+            is_ai = any(kw in raw_data.get("content", "").lower() or kw in raw_data.get("title", "").lower() for kw in ["ai", "gpt", "llm", "rag", "transformer", "learning", "model", "prompt"])
             
             if not is_ai and "github.com/trending" not in raw_data["url"]: 
                 # Strict filtering for non-trending pages. 
-                # For trending page itself, we might process it differently, but here we process individual repos.
                 return {"is_ai_related": False}
 
             return {
@@ -259,10 +275,10 @@ class IngestionPipeline:
                 "type": raw_data["type"],
                 "summary": raw_data.get("description") or f"AI 摘要: {raw_data.get('title')}",
                 "recommended_reason": f"推荐理由: 这是一个关于 {raw_data.get('title')} 的优质资源，适合深入学习 AI 技术。",
-                "author": "Unknown",
+                "author": raw_data.get("author", "Unknown"),
                 "concepts": ["AI", "LLM"], 
                 "tech_stack": raw_data.get("tech_stack", ["General"]),
-                "published_at": datetime.now().isoformat()
+                "published_at": self._resolve_date(raw_data.get("published_at"))
             }
         except Exception as e:
             logger.error(f"Analysis failed: {e}")

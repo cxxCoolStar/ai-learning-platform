@@ -6,6 +6,9 @@ from app.db.neo4j import neo4j_driver
 from app.db.milvus import MilvusConnection
 from app.db.session import engine, Base
 from app.models import sql_models # Import models to register them
+from app.services.scheduler import SchedulerService # Import Scheduler
+
+scheduler_service = SchedulerService()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,6 +28,12 @@ async def lifespan(app: FastAPI):
         MilvusConnection.connect()
     except Exception as e:
         print(f"Warning: Failed to connect to Milvus: {e}")
+        
+    # Start Scheduler
+    try:
+        scheduler_service.start()
+    except Exception as e:
+        print(f"Error starting scheduler: {e}")
         
     yield
     # Shutdown

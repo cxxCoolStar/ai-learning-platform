@@ -23,17 +23,29 @@ class ChatService:
         docs = self.retriever.search(user_query, strategy.value)
         
         # 3. Generate
-        context = "\n\n".join([f"[{i+1}] {d.page_content}" for i, d in enumerate(docs)])
+        context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
         
         prompt = ChatPromptTemplate.from_template("""
-        You are an AI Learning Assistant. Answer based on the context.
+        You are an intelligent AI Learning Assistant. Your goal is to help users learn about AI Application Development.
         
-        Context:
+        **Capabilities:**
+        1. Answer technical questions based on the provided context.
+        2. Recommend learning resources (Articles, Code, Videos) from the context.
+        3. Explain concepts (e.g., RAG, Agents) using the provided materials.
+
+        **Context:**
         {context}
         
-        Question: {question}
+        **User Query:** {question}
         
-        Answer (cite sources like [1]):
+        **Instructions:**
+        - If the user asks for recommendations, select the most relevant resources from the context and explain WHY they are good fits.
+        - When recommending a resource, ALWAYS provide its specific URL from the context. Do not use generic homepage links.
+        - If the user asks a technical question, synthesize the answer from the context.
+        - ALWAYS cite your sources using the numbers [1], [2], etc.
+        - If the context is empty or irrelevant, politely say you don't have that information in your knowledge base yet.
+        
+        Answer:
         """)
         
         chain = prompt | self.llm

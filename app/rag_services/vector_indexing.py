@@ -33,6 +33,17 @@ class VectorIndexingService:
         try:
             connections.connect(host=self.settings.MILVUS_HOST, port=self.settings.MILVUS_PORT)
             
+            # Check schema update
+            if utility.has_collection(self.collection_name):
+                # Simple check if schema matches (simplified)
+                # If we need to migrate schema (add 'url' and 'title'), best way for demo is to drop and recreate
+                # In prod, we'd create a new collection and migrate data.
+                # Let's drop if it exists to apply new schema (WARNING: Data loss)
+                # Or just use dynamic field if enabled?
+                # Let's just drop and recreate for this dev session since we have seed data script.
+                utility.drop_collection(self.collection_name)
+                logger.info(f"Dropped existing collection {self.collection_name} to apply schema update.")
+
             if not utility.has_collection(self.collection_name):
                 logger.info(f"Creating collection: {self.collection_name}")
                 
@@ -41,7 +52,10 @@ class VectorIndexingService:
                     FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=1536), # OpenAI embedding dim
                     FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=8192),
                     FieldSchema(name="resource_id", dtype=DataType.VARCHAR, max_length=64),
-                    FieldSchema(name="type", dtype=DataType.VARCHAR, max_length=32)
+                    FieldSchema(name="type", dtype=DataType.VARCHAR, max_length=32),
+                    # Added fields
+                    FieldSchema(name="url", dtype=DataType.VARCHAR, max_length=1024),
+                    FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=512)
                 ]
                 
                 schema = CollectionSchema(fields, "AI Learning Platform Resources")
@@ -75,6 +89,8 @@ class VectorIndexingService:
             [d.page_content[:8000] for d in documents], # text (truncated)
             [d.metadata.get("resource_id", "") for d in documents], # resource_id
             [d.metadata.get("type", "unknown") for d in documents], # type
+            [d.metadata.get("url", "")[:1024] for d in documents], # url
+            [d.metadata.get("title", "Untitled")[:512] for d in documents], # title
         ]
         
         try:

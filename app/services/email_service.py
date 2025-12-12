@@ -9,19 +9,17 @@ logger = logging.getLogger(__name__)
 class EmailService:
     def __init__(self):
         self.settings = get_settings()
-        self.smtp_server = "smtp.qq.com"
-        self.smtp_port = 465
-        # These should be in settings, but for now we default or expect env vars
-        self.user = self.settings.MYSQL_USER # Reusing user var or define new? 
-        # Better to define generic EMAIL vars in settings, I will update config logic later
-        # For now I'll assume they are passed or fetched from Env
+        self.smtp_server = self.settings.MAIL_HOST
+        self.smtp_port = self.settings.MAIL_PORT
+        self.user = self.settings.MAIL_USERNAME
+        self.password = self.settings.MAIL_PASSWORD
         
     def send_notification(self, to_email: str, subject: str, content: str):
         """
         Send email notification using QQ Mail (SMTP_SSL)
         """
-        sender = "your_qq_email@qq.com" # Needs config
-        password = "your_auth_code"     # Needs config
+        sender = self.user
+        password = self.password
         
         try:
             msg = MIMEMultipart()
@@ -32,7 +30,12 @@ class EmailService:
             msg.attach(MIMEText(content, 'plain'))
             
             # Connect to QQ Mail
-            server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+            if self.smtp_port == 465:
+                server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+            else:
+                server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+                server.starttls()
+                
             server.login(sender, password)
             server.send_message(msg)
             server.quit()
