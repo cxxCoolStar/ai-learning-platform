@@ -16,14 +16,13 @@ async def chat_endpoint(request: ChatRequest):
     # Simply call the service
     response = chat_service.chat(request.message)
     
-    # Extract sources from context if possible, for now we return generic source structure
-    # In a real implementation, ChatService should return structure with sources
-    # Since ChatService currently returns a raw string (AIMessage or str), we need to adapt.
-    
-    answer_text = response.content if hasattr(response, 'content') else str(response)
+    # Extract answer and suggestions
+    answer_text = response.get("content", "")
+    suggested_questions = response.get("suggested_questions", [])
     
     return ChatResponse(
         answer=answer_text,
         sources=[], # TODO: Pass source docs through from service
-        strategy_used="hybrid" # Placeholder
+        strategy_used="hybrid", # Placeholder
+        suggested_questions=suggested_questions
     )

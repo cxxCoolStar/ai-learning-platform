@@ -45,6 +45,11 @@ async def seed():
 
     pipeline = IngestionPipeline()
     
+    # Reset Vector and Graph databases for clean slate
+    print("Resetting Vector and Graph databases...")
+    pipeline.vector_service.reset_collection()
+    pipeline.graph_service.reset_graph()
+    
     # Sources to scrape
     sources = [
         "https://github.com/trending",
@@ -67,6 +72,7 @@ async def seed():
         "https://www.youtube.com/@Google",
         "https://www.youtube.com/@Every",
         "https://www.youtube.com/@MattTurck",
+        "https://www.youtube.com/@ColeMedin",
         # X Profiles
         "https://x.com/zarazhang",
         "https://x.com/zarazhangrui",

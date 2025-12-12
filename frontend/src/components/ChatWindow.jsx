@@ -13,6 +13,13 @@ const ChatWindow = () => {
     const [loading, setLoading] = useState(false);
     const scrollRef = useRef(null);
 
+    const [suggestedQuestions, setSuggestedQuestions] = useState([
+        '如何使用LangChain？',
+        '推荐AI开源项目',
+        'RAG技术是什么？',
+        'Agent如何工作？'
+    ]);
+
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -33,6 +40,11 @@ const ChatWindow = () => {
             const data = await sendChatMessage(userMsg, history);
 
             setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
+            
+            // Update suggested questions if backend provides them
+            if (data.suggested_questions && data.suggested_questions.length > 0) {
+                setSuggestedQuestions(data.suggested_questions);
+            }
         } catch (error) {
             setMessages(prev => [...prev, { role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' }]);
         } finally {
@@ -45,6 +57,11 @@ const ChatWindow = () => {
             e.preventDefault();
             handleSend();
         }
+    };
+
+    // 点击推荐问题
+    const handleQuestionClick = (question) => {
+        setInput(question);
     };
 
     return (
@@ -143,6 +160,27 @@ const ChatWindow = () => {
 
                 {/* Input Area */}
                 <div className="p-4 bg-white border-t border-slate-100">
+                    {/* Suggested Questions - 始终显示（除非loading） */}
+                    {!loading && suggestedQuestions.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                            <div className="flex items-center space-x-1 text-xs text-slate-500 mb-2">
+                                <Sparkles className="w-3 h-3" />
+                                <span>推荐问题</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {suggestedQuestions.map((question, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleQuestionClick(question)}
+                                        className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors border border-blue-200"
+                                    >
+                                        {question}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
                     <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
                         <input
                             type="text"

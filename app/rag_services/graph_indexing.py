@@ -50,6 +50,17 @@ class GraphIndexingService:
         except Exception as e:
             logger.error(f"Failed to create constraints: {e}")
 
+    def reset_graph(self):
+        """Delete all nodes and relationships (for seeding)"""
+        try:
+            with self.driver.get_session() as session:
+                session.run("MATCH (n) DETACH DELETE n")
+            logger.info("Graph database cleared")
+            # Re-create constraints
+            self._create_constraints()
+        except Exception as e:
+            logger.error(f"Failed to reset graph: {e}")
+
     def index_resource(self, resource_data: Dict[str, Any]):
         """
         Index a single resource into the Graph

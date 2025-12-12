@@ -37,6 +37,7 @@ class ChatResponse(BaseModel):
     answer: str
     sources: List[ResourceResponse] = []
     strategy_used: str
+    suggested_questions: List[str] = [] # Added suggested questions
 
 # --- Settings Schemas ---
 class NotificationSettings(BaseModel):

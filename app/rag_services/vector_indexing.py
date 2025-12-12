@@ -34,16 +34,6 @@ class VectorIndexingService:
             connections.connect(host=self.settings.MILVUS_HOST, port=self.settings.MILVUS_PORT)
             
             # Check schema update
-            if utility.has_collection(self.collection_name):
-                # Simple check if schema matches (simplified)
-                # If we need to migrate schema (add 'url' and 'title'), best way for demo is to drop and recreate
-                # In prod, we'd create a new collection and migrate data.
-                # Let's drop if it exists to apply new schema (WARNING: Data loss)
-                # Or just use dynamic field if enabled?
-                # Let's just drop and recreate for this dev session since we have seed data script.
-                utility.drop_collection(self.collection_name)
-                logger.info(f"Dropped existing collection {self.collection_name} to apply schema update.")
-
             if not utility.has_collection(self.collection_name):
                 logger.info(f"Creating collection: {self.collection_name}")
                 
@@ -74,6 +64,17 @@ class VectorIndexingService:
                 
         except Exception as e:
             logger.error(f"Milvus init failed: {e}")
+
+    def reset_collection(self):
+        """Drop and recreate collection (for seeding)"""
+        try:
+            connections.connect(host=self.settings.MILVUS_HOST, port=self.settings.MILVUS_PORT)
+            if utility.has_collection(self.collection_name):
+                utility.drop_collection(self.collection_name)
+                logger.info(f"Dropped collection {self.collection_name}")
+            self.ensure_collection()
+        except Exception as e:
+            logger.error(f"Failed to reset collection: {e}")
 
     def add_documents(self, documents: List[Document]):
         """Add documents to Milvus"""

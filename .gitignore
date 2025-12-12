@@ -52,3 +52,14 @@ application-local-*.yml
 /app/__pycache__/*
 /app/core/__pycache__/*
 /app/services/__pycache__/*
+app/rag_services/__pycache__/*
+app/api/__pycache__/chat.cpython-312.pyc
+app/models/__pycache__/schemas.cpython-312.pyc
+app/models/__pycache__/schemas.cpython-312.pyc.2468560673152
+app/rag_services/__pycache__/chat.cpython-312.pyc
+app/rag_services/__pycache__/graph_indexing.cpython-312.pyc
+app/rag_services/__pycache__/*
+app/services/parsers/__pycache__/*
+app/rag_services/__pycache__/chat.cpython-312.pyc
+app/rag_services/__pycache__/graph_indexing.cpython-312.pyc
+app/rag_services/__pycache__/vector_indexing.cpython-312.pyc
