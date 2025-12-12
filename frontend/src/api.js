@@ -10,7 +10,8 @@ export const fetchResources = async (filters = {}) => {
         Object.entries(filters).filter(([_, v]) => v != null && v !== '')
     );
     const params = new URLSearchParams(cleanFilters);
-    const response = await api.get(`/resources?${params}`);
+    // Add trailing slash to avoid 307 redirect
+    const response = await api.get(`/resources/?${params}`);
     return response.data;
 };
 
@@ -22,6 +23,49 @@ export const fetchResourceStats = async () => {
 export const sendChatMessage = async (message, history = []) => {
     const response = await api.post('/chat', { message, history });
     return response.data;
+};
+
+export const sendChatMessageStream = async (message, history = [], onChunk) => {
+    const response = await fetch('/api/v1/chat/stream', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message, history }),
+    });
+
+    if (!response.ok) {
+        throw new Error('Network response was not ok');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        
+        const parts = buffer.split('\n\n');
+        // Keep the last part in buffer as it might be incomplete
+        buffer = parts.pop();
+        
+        for (const part of parts) {
+            if (part.startsWith('data: ')) {
+                const jsonStr = part.slice(6);
+                if (jsonStr === '[DONE]') return;
+                try {
+                    const data = JSON.parse(jsonStr);
+                    onChunk(data);
+                } catch (e) {
+                    console.error('Error parsing SSE:', e);
+                }
+            }
+        }
+    }
 };
 
 export const submitFeedback = async (resourceId, voteType, reason) => {

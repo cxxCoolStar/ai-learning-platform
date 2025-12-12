@@ -3,6 +3,8 @@ from app.rag_services.retrieval import RetrievalService
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from app.core.config import get_settings
+import json
+import asyncio
 
 class ChatService:
     def __init__(self):
@@ -14,6 +16,74 @@ class ChatService:
             api_key=settings.OPENAI_API_KEY,
             base_url=settings.OPENAI_BASE_URL
         )
+
+    async def chat_stream(self, user_query: str):
+        """
+        Async generator for streaming chat response
+        """
+        # 1. Route
+        # Note: route_query calls LLM synchronously currently. 
+        # Ideally this should be async but for now we wrap it or accept blocking.
+        # Since this is a pair programming task, let's keep it simple.
+        # Running in thread pool to avoid blocking the event loop
+        strategy, analysis = await asyncio.to_thread(self.router.route_query, user_query)
+        
+        # 2. Retrieve (also blocking, run in thread)
+        docs = await asyncio.to_thread(self.retriever.search, user_query, strategy.value)
+        
+        # 3. Generate
+        context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
+        
+        prompt = ChatPromptTemplate.from_template("""
+        You are an intelligent AI Learning Assistant. Your goal is to help users learn about AI Application Development.
+        
+        **Capabilities:**
+        1. Answer technical questions based on the provided context.
+        2. Recommend learning resources (Articles, Code, Videos) from the context.
+        3. Explain concepts (e.g., RAG, Agents) using the provided materials.
+
+        **Context:**
+        {context}
+        
+        **User Query:** {question}
+        
+        **Instructions:**
+        - If the user asks for recommendations, select the most relevant resources from the context.
+        - Pay attention to the user's requested type (e.g., "GitHub projects", "articles", "videos"). If they ask for "GitHub projects", ONLY recommend resources where Type is "Code".
+        - When recommending a resource, format it as follows:
+          **[Resource Title]**
+          [Summary of the resource]
+          [访问链接](URL)
+        - Do NOT repeat the title in the link text.
+        - If the user asks a technical question, synthesize the answer from the context and cite sources using [1], [2] notation.
+        - **IMPORTANT FOR VIDEO CITATIONS:** If the retrieved information comes from a YouTube video transcript (Type: Video) and the content contains timestamps (e.g., [00:02]), you MUST include the timestamp in your citation.
+          - Format: 来源[视频名称] [MM:SS]
+          - Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])..."
+        
+        Answer:
+        """)
+        
+        chain = prompt | self.llm
+        
+        full_answer = ""
+        
+        # Stream the response
+        async for chunk in chain.astream({"context": context, "question": user_query}):
+            if chunk.content:
+                full_answer += chunk.content
+                # Yield SSE format
+                yield f"data: {json.dumps({'type': 'token', 'content': chunk.content}, ensure_ascii=False)}\n\n"
+        
+        # 4. Generate Suggested Questions (Async)
+        # We can't use await inside the generator easily for the helper if it's sync, 
+        # so we wrap the helper call.
+        suggested_questions = await asyncio.to_thread(self._generate_suggested_questions, user_query, full_answer)
+        
+        # Yield suggestions
+        yield f"data: {json.dumps({'type': 'suggestions', 'content': suggested_questions}, ensure_ascii=False)}\n\n"
+        
+        # Yield Done
+        yield "data: [DONE]\n\n"
 
     def chat(self, user_query: str):
         # 1. Route

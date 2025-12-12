@@ -1,9 +1,23 @@
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from app.models.schemas import ChatRequest, ChatResponse, ResourceResponse, GenerateQuestionsRequest, GenerateQuestionsResponse
 from app.rag_services.chat import ChatService
 
 router = APIRouter()
 chat_service = ChatService()
+
+@router.post("/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    """
+    RAG Chat Streaming Endpoint (SSE).
+    Returns a stream of events:
+    - {"type": "token", "content": "..."}
+    - {"type": "suggestions", "content": [...]}
+    """
+    return StreamingResponse(
+        chat_service.chat_stream(request.message),
+        media_type="text/event-stream"
+    )
 
 @router.post("/generate_questions", response_model=GenerateQuestionsResponse)
 async def generate_questions_endpoint(request: GenerateQuestionsRequest):

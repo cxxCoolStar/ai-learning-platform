@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Maximize2, Minimize2, Loader2, Sparkles, MessageSquare } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { sendChatMessage } from '../api';
+import { sendChatMessageStream } from '../api';
 
 const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, onClose }) => {
     // Internal state for standalone usage, but controlled by props if provided
@@ -62,18 +62,43 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
         setLoading(true);
 
         try {
-            // Pass history to backend if needed, for now just current prompt context + basic history
             const history = messages.map(m => ({ role: m.role, content: m.content }));
-            const data = await sendChatMessage(userMsg, history);
-
-            setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
             
-            // Update suggested questions if backend provides them
-            if (data.suggested_questions && data.suggested_questions.length > 0) {
-                setSuggestedQuestions(data.suggested_questions);
-            }
+            // Placeholder for new assistant message
+            setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+            
+            let accumulatedContent = '';
+
+            await sendChatMessageStream(userMsg, history, (data) => {
+                if (data.type === 'token') {
+                    accumulatedContent += data.content;
+                    setMessages(prev => {
+                        const newMsgs = [...prev];
+                        // Update the last message
+                        newMsgs[newMsgs.length - 1] = { 
+                            role: 'assistant', 
+                            content: accumulatedContent 
+                        };
+                        return newMsgs;
+                    });
+                } else if (data.type === 'suggestions') {
+                    setSuggestedQuestions(data.content);
+                }
+            });
+            
         } catch (error) {
-            setMessages(prev => [...prev, { role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' }]);
+            console.error("Chat Error:", error);
+            setMessages(prev => {
+                const newMsgs = [...prev];
+                // If the last message was the empty placeholder, update it with error
+                if (newMsgs[newMsgs.length - 1].role === 'assistant' && newMsgs[newMsgs.length - 1].content === '') {
+                     newMsgs[newMsgs.length - 1] = { role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' };
+                } else {
+                     // Otherwise append error
+                     newMsgs.push({ role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' });
+                }
+                return newMsgs;
+            });
         } finally {
             setLoading(false);
         }
