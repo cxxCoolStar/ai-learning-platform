@@ -32,4 +32,13 @@ export const submitFeedback = async (resourceId, voteType, reason) => {
     return response.data;
 };
 
+export const generateQuestions = async (resourceId, title, summary) => {
+    const response = await api.post('/chat/generate_questions', {
+        resource_id: resourceId,
+        resource_title: title,
+        resource_summary: summary
+    });
+    return response.data.questions;
+};
+
 export default api;

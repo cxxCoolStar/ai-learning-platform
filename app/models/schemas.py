@@ -39,6 +39,14 @@ class ChatResponse(BaseModel):
     strategy_used: str
     suggested_questions: List[str] = [] # Added suggested questions
 
+class GenerateQuestionsRequest(BaseModel):
+    resource_id: str
+    resource_title: str
+    resource_summary: Optional[str] = None
+
+class GenerateQuestionsResponse(BaseModel):
+    questions: List[str]
+
 # --- Settings Schemas ---
 class NotificationSettings(BaseModel):
     email: str

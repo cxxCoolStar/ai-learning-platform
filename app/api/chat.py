@@ -1,9 +1,20 @@
 from fastapi import APIRouter
-from app.models.schemas import ChatRequest, ChatResponse, ResourceResponse
+from app.models.schemas import ChatRequest, ChatResponse, ResourceResponse, GenerateQuestionsRequest, GenerateQuestionsResponse
 from app.rag_services.chat import ChatService
 
 router = APIRouter()
 chat_service = ChatService()
+
+@router.post("/generate_questions", response_model=GenerateQuestionsResponse)
+async def generate_questions_endpoint(request: GenerateQuestionsRequest):
+    """
+    Generate 3 suggested questions based on a specific resource.
+    """
+    questions = chat_service.generate_questions_for_resource(
+        request.resource_title, 
+        request.resource_summary
+    )
+    return GenerateQuestionsResponse(questions=questions)
 
 @router.post("/", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):

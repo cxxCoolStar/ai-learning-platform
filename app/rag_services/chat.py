@@ -64,6 +64,33 @@ class ChatService:
             "suggested_questions": suggested_questions
         }
 
+    def generate_questions_for_resource(self, title: str, summary: str = None) -> list[str]:
+        """
+        Generate 3 questions based on a specific resource title and summary.
+        """
+        try:
+            prompt = f"""
+            Generate 3 interesting questions a user might ask about the following AI resource.
+            
+            Resource Title: {title}
+            Summary: {summary or "No summary available"}
+            
+            Return ONLY a JSON array of strings, e.g. ["Question 1?", "Question 2?", "Question 3?"].
+            No markdown, no explanation.
+            """
+            
+            response = self.llm.invoke(prompt)
+            content = response.content.strip()
+            
+            if "```" in content:
+                content = content.replace("```json", "").replace("```", "")
+            
+            import json
+            questions = json.loads(content)
+            return questions[:3]
+        except Exception as e:
+            return [f"What is {title} about?", "How do I use this?", "Why is this important?"]
+
     def _generate_suggested_questions(self, user_query: str, answer: str) -> list[str]:
         """
         Generate 3 follow-up questions based on the interaction.

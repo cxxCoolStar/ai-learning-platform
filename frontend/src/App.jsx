@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Bell, Github, FileText, Video, MessageSquare, Plus, Filter, Mail, Star, ExternalLink, Calendar, Tag, BookOpen, TrendingUp, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
-import { fetchResources, fetchResourceStats, submitFeedback } from './api';
+import { fetchResources, fetchResourceStats, submitFeedback, generateQuestions } from './api';
 import ChatWindow from './components/ChatWindow';
 
 const App = () => {
@@ -12,6 +12,35 @@ const App = () => {
     // Feedback Modal State
     const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, resourceId: null, voteType: null });
     const [feedbackReason, setFeedbackReason] = useState('');
+
+    // Chat State for "Add to AI Chat"
+    const [chatState, setChatState] = useState({
+        isOpen: false,
+        initialMessage: null,
+        initialQuestions: []
+    });
+
+    const handleAddToChat = async (e, resource) => {
+        e.stopPropagation();
+        // Open chat immediately with loading state
+        setChatState({
+            isOpen: true,
+            initialMessage: `我想了解更多关于 "${resource.title}" 的信息。`,
+            initialQuestions: [] // Clear previous suggestions
+        });
+
+        try {
+            // Generate questions in background
+            const questions = await generateQuestions(resource.id, resource.title, resource.description);
+            // Update chat with generated questions
+            setChatState(prev => ({
+                ...prev,
+                initialQuestions: questions
+            }));
+        } catch (error) {
+            console.error("Failed to generate questions", error);
+        }
+    };
 
     const handleFeedbackClick = (e, resourceId, voteType) => {
         e.stopPropagation();
@@ -383,6 +412,13 @@ const App = () => {
 
                                             <div className="flex gap-1 shrink-0 ml-2">
                                                 <button
+                                                    onClick={(e) => handleAddToChat(e, resource)}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors font-medium text-xs mr-2"
+                                                >
+                                                    <MessageSquare className="w-4 h-4" />
+                                                    <span>添加到AI对话</span>
+                                                </button>
+                                                <button
                                                     onClick={(e) => handleFeedbackClick(e, resource.id, 'like')}
                                                     className="p-2 hover:bg-green-50 text-slate-400 hover:text-green-600 rounded-lg transition-colors"
                                                     title="推荐"
@@ -411,7 +447,12 @@ const App = () => {
             </div>
 
             {/* ChatWindow with its own floating button */}
-            <ChatWindow />
+            <ChatWindow 
+                isOpen={chatState.isOpen}
+                initialMessage={chatState.initialMessage}
+                initialQuestions={chatState.initialQuestions}
+                onClose={() => setChatState(prev => ({ ...prev, isOpen: false }))}
+            />
         </div>
     );
 };

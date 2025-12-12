@@ -4,8 +4,13 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sendChatMessage } from '../api';
 
-const ChatWindow = () => {
-    const [isOpen, setIsOpen] = useState(false);
+const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, onClose }) => {
+    // Internal state for standalone usage, but controlled by props if provided
+    const [internalIsOpen, setInternalIsOpen] = useState(false);
+    
+    // Determine effective open state
+    const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+    
     const [messages, setMessages] = useState([
         { role: 'assistant', content: '你好！我是AI助手。我可以帮你查找资源或回答关于AI的问题。试试问我"如何使用LangChain？"' }
     ]);
@@ -19,6 +24,28 @@ const ChatWindow = () => {
         'RAG技术是什么？',
         'Agent如何工作？'
     ]);
+
+    // Handle initial props changes (e.g. from "Add to Chat" button)
+    useEffect(() => {
+        if (initialMessage) {
+            setInput(initialMessage);
+        }
+        if (initialQuestions && initialQuestions.length > 0) {
+            setSuggestedQuestions(initialQuestions);
+        }
+    }, [initialMessage, initialQuestions]);
+
+    const handleClose = () => {
+        if (onClose) {
+            onClose();
+        } else {
+            setInternalIsOpen(false);
+        }
+    };
+
+    const handleOpen = () => {
+        setInternalIsOpen(true);
+    };
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -66,17 +93,19 @@ const ChatWindow = () => {
 
     return (
         <>
-            {/* Floating Button */}
-            <button
-                onClick={() => setIsOpen(true)}
-                className={`fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all flex items-center justify-center group z-40 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
-                    }`}
-            >
-                <MessageSquare className="w-7 h-7 group-hover:scale-110 transition-transform" />
-                <span className="absolute -top-12 right-0 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    AI助手搜索
-                </span>
-            </button>
+            {/* Floating Button - Only show if not controlled externally */}
+            {externalIsOpen === undefined && (
+                <button
+                    onClick={handleOpen}
+                    className={`fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all flex items-center justify-center group z-40 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
+                        }`}
+                >
+                    <MessageSquare className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                    <span className="absolute -top-12 right-0 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        AI助手搜索
+                    </span>
+                </button>
+            )}
 
             {/* Chat Window */}
             <div
@@ -98,7 +127,7 @@ const ChatWindow = () => {
                             </p>
                         </div>
                     </div>
-                    <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                    <button onClick={handleClose} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
