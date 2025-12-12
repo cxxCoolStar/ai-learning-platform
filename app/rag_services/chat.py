@@ -58,7 +58,9 @@ class ChatService:
         - If the user asks a technical question, synthesize the answer from the context and cite sources using [1], [2] notation.
         - **IMPORTANT FOR VIDEO CITATIONS:** If the retrieved information comes from a YouTube video transcript (Type: Video) and the content contains timestamps (e.g., [00:02]), you MUST include the timestamp in your citation.
           - Format: 来源[视频名称] [MM:SS]
-          - Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])..."
+          - **Link Formatting:** When providing the link to the video, append the `t` parameter to the URL to deep link to the specific time. Convert the timestamp [MM:SS] to seconds or use `MmSs` format.
+            - Example: If URL is `https://www.youtube.com/watch?v=xyz` and timestamp is `[02:05]`, the link should be `https://www.youtube.com/watch?v=xyz&t=2m05s` or `https://www.youtube.com/watch?v=xyz&t=125s`.
+            - Citation Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])... [观看视频](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=15m30s)"
         
         Answer:
         """)
