@@ -53,6 +53,7 @@ class ChatService:
         **User Query:** {question}
         
         **Instructions:**
+        - Please answer in Chinese.
         - If the user asks for recommendations, select the most relevant resources from the context.
         - Pay attention to the user's requested type (e.g., "GitHub projects", "articles", "videos"). If they ask for "GitHub projects", ONLY recommend resources where Type is "Code".
         - When recommending a resource, format it as follows:
