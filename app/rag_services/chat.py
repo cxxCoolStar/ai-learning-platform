@@ -70,6 +70,12 @@ class ChatService:
             - Citation Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])... [观看视频](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=15m30s)"
         - **Anti-Hallucination:** Do NOT estimate or interpolate timestamps (e.g., do not invent [37:15] if the text says [37:10]). ALWAYS use the EXACT timestamp that appears at the **start** of the line/segment where the information is found.
         - **Duration Constraint:** Check the "Duration" field of the source. If a timestamp (e.g. [05:00]) exceeds the video duration (e.g. 00:44), it is HALUCINATED or from a mismatched source. DO NOT CITE IT. Instead, cite the source title without a timestamp.
+        - **Detailed Summary Request:** If the user asks to "know more about" ("了解更多") a specific resource, you MUST provide a **Detailed Study Note** instead of a short summary. Structure it as follows:
+          1. **Core Concept**: What is this resource about?
+          2. **Key Features / Methodology**: How does it work? What are the technical details?
+          3. **Significance**: Why is this important?
+          4. **Key Takeaways**: What should the user remember?
+          5. **Usage/Application**: How can this be used in AI Application Development?
         
         Answer:
         """)
@@ -139,6 +145,12 @@ class ChatService:
           - Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [01:15:30])..."
         - **Anti-Hallucination:** Do NOT estimate or interpolate timestamps. ALWAYS use the EXACT timestamp that appears at the **start** of the line/segment where the information is found.
         - **Duration Constraint:** Check the "Duration" field of the source. If a timestamp (e.g. [05:00]) exceeds the video duration (e.g. 00:44), it is HALUCINATED or from a mismatched source. DO NOT CITE IT. Instead, cite the source title without the timestamp.
+        - **Detailed Summary Request:** If the user asks to "know more about" ("了解更多") a specific resource, you MUST provide a **Detailed Study Note** instead of a short summary. Structure it as follows:
+          1. **Core Concept**: What is this resource about?
+          2. **Key Features / Methodology**: How does it work? What are the technical details?
+          3. **Significance**: Why is this important?
+          4. **Key Takeaways**: What should the user remember?
+          5. **Usage/Application**: How can this be used in AI Application Development?
         
         Answer:
         """)
