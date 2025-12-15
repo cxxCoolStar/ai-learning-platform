@@ -81,3 +81,4 @@ app/api/__pycache__/chat.cpython-312.pyc
 app/rag_services/__pycache__/vector_indexing.cpython-312.pyc
 app/rag_services/__pycache__/chat.cpython-312.pyc
 app/services/__pycache__/crawler.cpython-312.pyc
+app/services/__pycache__/crawler.cpython-312.pyc

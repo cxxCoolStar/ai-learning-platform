@@ -328,6 +328,7 @@ class YouTubeCrawler(BaseCrawler):
         title = "YouTube Video"
         description = ""
         author = "Unknown"
+        published_at = None
         
         try:
             # Use WebCrawler's lightweight approach (just requests if we didn't use crawl4ai)
@@ -359,7 +360,20 @@ class YouTubeCrawler(BaseCrawler):
                          name_tag = author_tag.find(attrs={'itemprop': 'name'})
                          if name_tag:
                              author = name_tag.get('content', '').strip()
+                        
+                    # Date Extraction
+                    date_meta = soup.find('meta', attrs={'itemprop': 'uploadDate'}) or \
+                                soup.find('meta', attrs={'itemprop': 'datePublished'})
+                    
+                    if date_meta:
+                        published_at = date_meta.get('content', '')
+                        # Check recency immediately
+                        if published_at and not is_content_recent(published_at):
+                            logger.warning(f"Video {video_id} published on {published_at} is older than 3 months. Skipping.")
+                            raise ValueError("Content is older than 3 months")
         except Exception as e:
+            if "older than 3 months" in str(e):
+                raise e
             logger.warning(f"Failed to fetch metadata for {url}: {e}")
 
         # Combine Transcript into Content
@@ -371,7 +385,8 @@ class YouTubeCrawler(BaseCrawler):
             "url": url,
             "type": "Video",
             "author": author,
-            "description": description
+            "description": description,
+            "published_at": published_at
         }
 
 class CrawlerFactory:
