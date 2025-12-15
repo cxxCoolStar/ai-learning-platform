@@ -8,7 +8,7 @@ const App = () => {
     const [activeTab, setActiveTab] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-    
+
     // Feedback Modal State
     const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, resourceId: null, voteType: null });
     const [feedbackReason, setFeedbackReason] = useState('');
@@ -49,7 +49,7 @@ const App = () => {
 
     const handleFeedbackSubmit = async () => {
         if (!feedbackModal.resourceId) return;
-        
+
         try {
             await submitFeedback(feedbackModal.resourceId, feedbackModal.voteType, feedbackReason);
             // Optionally show success toast
@@ -103,7 +103,7 @@ const App = () => {
         updatedAt: r.published_at ? new Date(r.published_at).toLocaleDateString() : 'Recently',
         isNew: false
     }));
-    
+
     const getTypeIcon = (type) => {
         const icons = {
             code: Github,
@@ -284,8 +284,8 @@ const App = () => {
                                         key={cat.id}
                                         onClick={() => setActiveTab(cat.id)}
                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all ${isActive
-                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                                             }`}
                                     >
                                         <Icon className="w-4 h-4" />
@@ -303,9 +303,9 @@ const App = () => {
 
                 {/* Resources Grid */}
                 {isLoading ? (
-                     <div className="flex justify-center items-center h-64">
-                         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                     </div>
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                    </div>
                 ) : (
                     <div className="grid gap-6">
                         {displayResources.length > 0 ? (
@@ -319,9 +319,9 @@ const App = () => {
                                         <div className="flex items-start justify-between mb-4">
                                             <div className="flex items-start gap-4 flex-1">
                                                 <div className={`p-3 rounded-xl ${resource.type === 'code' ? 'bg-purple-100 text-purple-600' :
-                                                        resource.type === 'article' ? 'bg-blue-100 text-blue-600' :
-                                                            resource.type === 'video' ? 'bg-red-100 text-red-600' :
-                                                                'bg-green-100 text-green-600'
+                                                    resource.type === 'article' ? 'bg-blue-100 text-blue-600' :
+                                                        resource.type === 'video' ? 'bg-red-100 text-red-600' :
+                                                            'bg-green-100 text-green-600'
                                                     }`}>
                                                     {getTypeIcon(resource.type)}
                                                 </div>
@@ -447,11 +447,12 @@ const App = () => {
             </div>
 
             {/* ChatWindow with its own floating button */}
-            <ChatWindow 
+            <ChatWindow
                 isOpen={chatState.isOpen}
                 initialMessage={chatState.initialMessage}
                 initialQuestions={chatState.initialQuestions}
                 onClose={() => setChatState(prev => ({ ...prev, isOpen: false }))}
+                onOpen={() => setChatState(prev => ({ ...prev, isOpen: true }))}
             />
         </div>
     );

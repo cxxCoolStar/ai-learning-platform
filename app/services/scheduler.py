@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 class SchedulerService:
     def __init__(self):
         self.scheduler = AsyncIOScheduler()
-        self.ingestion_pipeline = IngestionPipeline()
-        self.email_service = EmailService()
+        self.ingestion_pipeline = None
+        self.email_service = None
         self.notification_email = "1848505943@qq.com" # Could be configurable per user later
         self.settings = get_settings()
         
@@ -30,6 +30,16 @@ class SchedulerService:
             )
         except Exception:
             self.llm = None
+
+    def get_ingestion_pipeline(self):
+        if not self.ingestion_pipeline:
+            self.ingestion_pipeline = IngestionPipeline()
+        return self.ingestion_pipeline
+
+    def get_email_service(self):
+        if not self.email_service:
+            self.email_service = EmailService()
+        return self.email_service
 
     def start(self):
         """Start the scheduler"""
@@ -60,7 +70,7 @@ class SchedulerService:
         
         logger.info("Crawling sources for daily update...")
         for url in sources:
-            await self.ingestion_pipeline.ingest_url(url)
+            await self.get_ingestion_pipeline().ingest_url(url)
             
         # 2. Query new resources (last 24h)
         yesterday = datetime.now() - timedelta(days=1)
@@ -162,7 +172,7 @@ class SchedulerService:
             """
             
             # 5. Send Email
-            self.email_service.send_notification(self.notification_email, subject, plain_content, html_content)
+            self.get_email_service().send_notification(self.notification_email, subject, plain_content, html_content)
             logger.info("Daily digest email sent (HTML).")
             
         except Exception as e:

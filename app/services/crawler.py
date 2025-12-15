@@ -306,7 +306,10 @@ class YouTubeCrawler(BaseCrawler):
                 # Format: [Start Time] Text
                 # Entry is object with .start, .text attributes
                 seconds = int(entry.start)
-                timestamp = f"{seconds//60:02d}:{seconds%60:02d}"
+                if seconds >= 3600:
+                    timestamp = f"{seconds//3600:02d}:{(seconds%3600)//60:02d}:{seconds%60:02d}"
+                else:
+                    timestamp = f"{seconds//60:02d}:{seconds%60:02d}"
                 lines.append(f"[{timestamp}] {entry.text}")
             
             transcript_text = "\n".join(lines)

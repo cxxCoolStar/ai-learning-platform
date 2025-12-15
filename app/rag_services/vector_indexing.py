@@ -1,6 +1,8 @@
 import logging
 import time
 from typing import List, Dict, Any, Optional
+from functools import lru_cache
+
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 # from langchain_openai import OpenAIEmbeddings # Replaced with HuggingFace
@@ -11,6 +13,23 @@ from pymilvus import Collection, connections, utility, CollectionSchema, FieldSc
 
 logger = logging.getLogger(__name__)
 
+@lru_cache()
+def get_embeddings_model():
+    logger.info("Initializing HuggingFace Embeddings (BAAI/bge-small-zh-v1.5)...")
+    try:
+        embeddings = HuggingFaceEmbeddings(
+            model_name="BAAI/bge-small-zh-v1.5",
+            model_kwargs={'device': 'cpu'}, # Use 'cuda' if GPU available
+            encode_kwargs={'normalize_embeddings': True}
+        )
+        # Test embedding
+        embeddings.embed_query("test")
+        logger.info("HuggingFace Embeddings initialized successfully.")
+        return embeddings
+    except Exception as e:
+        logger.error(f"Embeddings connection failed: {e}")
+        raise e
+
 class VectorIndexingService:
     """
     Vector Indexing Service using Milvus
@@ -20,21 +39,8 @@ class VectorIndexingService:
         self.settings = get_settings()
         self.collection_name = collection_name
         
-        # Use BAAI/bge-small-zh-v1.5 (Local/HuggingFace)
-        # This model is excellent for Chinese/English retrieval and small enough for CPU/Light GPU
-        try:
-            logger.info("Initializing HuggingFace Embeddings (BAAI/bge-small-zh-v1.5)...")
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name="BAAI/bge-small-zh-v1.5",
-                model_kwargs={'device': 'cpu'}, # Use 'cuda' if GPU available
-                encode_kwargs={'normalize_embeddings': True}
-            )
-            # Test embedding
-            self.embeddings.embed_query("test")
-            logger.info("HuggingFace Embeddings initialized successfully.")
-        except Exception as e:
-            logger.error(f"OpenAI Embeddings connection failed: {e}")
-            raise e
+        # Use Cached Embeddings
+        self.embeddings = get_embeddings_model()
         
         self.ensure_collection()
 

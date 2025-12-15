@@ -26,6 +26,7 @@ export const sendChatMessage = async (message, history = []) => {
 };
 
 export const sendChatMessageStream = async (message, history = [], onChunk) => {
+    // Explicitly use /api/v1 prefix which is proxied by Vite
     const response = await fetch('/api/v1/chat/stream', {
         method: 'POST',
         headers: {

@@ -4,13 +4,13 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sendChatMessageStream } from '../api';
 
-const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, onClose }) => {
+const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, onClose, onOpen }) => {
     // Internal state for standalone usage, but controlled by props if provided
     const [internalIsOpen, setInternalIsOpen] = useState(false);
-    
+
     // Determine effective open state
     const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
-    
+
     const [messages, setMessages] = useState([
         { role: 'assistant', content: '你好！我是AI助手。我可以帮你查找资源或回答关于AI的问题。试试问我"如何使用LangChain？"' }
     ]);
@@ -38,7 +38,7 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
 
     const handleResize = (e) => {
         if (!isResizing.current) return;
-        
+
         // Calculate new size based on mouse position relative to window bottom-right
         const newWidth = window.innerWidth - e.clientX + 20; // +20 offset for better feel
         const newHeight = window.innerHeight - e.clientY + 20;
@@ -74,6 +74,9 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
     };
 
     const handleOpen = () => {
+        if (onOpen) {
+            onOpen();
+        }
         setInternalIsOpen(true);
     };
 
@@ -93,10 +96,10 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
 
         try {
             const history = messages.map(m => ({ role: m.role, content: m.content }));
-            
+
             // Placeholder for new assistant message
             setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-            
+
             let accumulatedContent = '';
 
             await sendChatMessageStream(userMsg, history, (data) => {
@@ -105,9 +108,9 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
                     setMessages(prev => {
                         const newMsgs = [...prev];
                         // Update the last message
-                        newMsgs[newMsgs.length - 1] = { 
-                            role: 'assistant', 
-                            content: accumulatedContent 
+                        newMsgs[newMsgs.length - 1] = {
+                            role: 'assistant',
+                            content: accumulatedContent
                         };
                         return newMsgs;
                     });
@@ -115,17 +118,17 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
                     setSuggestedQuestions(data.content);
                 }
             });
-            
+
         } catch (error) {
             console.error("Chat Error:", error);
             setMessages(prev => {
                 const newMsgs = [...prev];
                 // If the last message was the empty placeholder, update it with error
                 if (newMsgs[newMsgs.length - 1].role === 'assistant' && newMsgs[newMsgs.length - 1].content === '') {
-                     newMsgs[newMsgs.length - 1] = { role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' };
+                    newMsgs[newMsgs.length - 1] = { role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' };
                 } else {
-                     // Otherwise append error
-                     newMsgs.push({ role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' });
+                    // Otherwise append error
+                    newMsgs.push({ role: 'assistant', content: '抱歉，遇到了一些问题，请重试。' });
                 }
                 return newMsgs;
             });
@@ -148,42 +151,40 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
 
     return (
         <>
-            {/* Floating Button - Only show if not controlled externally */}
-            {externalIsOpen === undefined && (
-                <button
-                    onClick={handleOpen}
-                    className={`fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all flex items-center justify-center group z-40 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
-                        }`}
-                >
-                    <MessageSquare className="w-7 h-7 group-hover:scale-110 transition-transform" />
-                    <span className="absolute -top-12 right-0 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        AI助手搜索
-                    </span>
-                </button>
-            )}
+            {/* Floating Button - Always render, visibility controlled by CSS opacity/scale */}
+            <button
+                onClick={handleOpen}
+                className={`fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all flex items-center justify-center group z-40 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
+                    }`}
+            >
+                <MessageSquare className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                <span className="absolute -top-12 right-0 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    AI助手搜索
+                </span>
+            </button>
 
             {/* Chat Window */}
             <div
                 className={`fixed bottom-8 right-8 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col transition-all duration-300 z-50 overflow-hidden ${isOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-10 pointer-events-none'
                     }`}
-                style={{ 
-                    width: `${size.width}px`, 
+                style={{
+                    width: `${size.width}px`,
                     height: `${size.height}px`,
                     maxHeight: 'calc(100vh - 4rem)',
                     maxWidth: 'calc(100vw - 2rem)'
                 }}
             >
                 {/* Resize Handle (Top-Left corner for bottom-right fixed window) */}
-                <div 
+                <div
                     className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-50 hover:bg-slate-200 rounded-br transition-colors"
                     onMouseDown={startResize}
                     title="调整大小"
                 />
 
                 {/* Header */}
-                <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center shrink-0 cursor-move" 
+                <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center shrink-0 cursor-move"
                     onMouseDown={(e) => {
-                         // Optional: Add drag functionality later if needed
+                        // Optional: Add drag functionality later if needed
                     }}
                 >
                     <div className="flex items-center space-x-2">
@@ -218,19 +219,19 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
                         >
                             <div
                                 className={`max-w-[90%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user'
-                                        ? 'bg-blue-600 text-white rounded-tr-none'
-                                        : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'
+                                    ? 'bg-blue-600 text-white rounded-tr-none'
+                                    : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'
                                     }`}
                             >
                                 {msg.role === 'user' ? (
                                     <div className="whitespace-pre-wrap">{msg.content}</div>
                                 ) : (
                                     <div className="markdown-content prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-slate-800 prose-pre:text-slate-100 prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1 prose-code:rounded prose-a:text-blue-600 hover:prose-a:underline">
-                                        <ReactMarkdown 
+                                        <ReactMarkdown
                                             remarkPlugins={[remarkGfm]}
                                             components={{
-                                                a: ({node, ...props}) => <a {...props} className="text-blue-600 font-medium hover:underline break-all" target="_blank" rel="noopener noreferrer" />,
-                                                code: ({node, inline, className, children, ...props}) => {
+                                                a: ({ node, ...props }) => <a {...props} className="text-blue-600 font-medium hover:underline break-all" target="_blank" rel="noopener noreferrer" />,
+                                                code: ({ node, inline, className, children, ...props }) => {
                                                     return inline ? (
                                                         <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono text-slate-800 border border-slate-200" {...props}>{children}</code>
                                                     ) : (
@@ -282,7 +283,7 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
                             </div>
                         </div>
                     )}
-                    
+
                     <div className="flex items-center space-x-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-inner">
                         <input
                             type="text"
@@ -296,8 +297,8 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
                             onClick={handleSend}
                             disabled={!input.trim() || loading}
                             className={`p-2.5 rounded-xl transition-all duration-200 ${input.trim() && !loading
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
-                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                 }`}
                         >
                             <Send className="w-4 h-4" />

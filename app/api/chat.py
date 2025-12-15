@@ -14,6 +14,7 @@ async def chat_stream_endpoint(request: ChatRequest):
     - {"type": "token", "content": "..."}
     - {"type": "suggestions", "content": [...]}
     """
+    print(f"DEBUG: Endpoint /stream hit with query: {request.message[:50]}", flush=True)
     return StreamingResponse(
         chat_service.chat_stream(request.message),
         media_type="text/event-stream"
@@ -38,6 +39,7 @@ async def chat_endpoint(request: ChatRequest):
     2. Retrieves context (Graph + Vector).
     3. Generates answer.
     """
+    print(f"DEBUG: Endpoint /chat/ hit with query: {request.message[:50]}", flush=True)
     # Simply call the service
     response = chat_service.chat(request.message)
     

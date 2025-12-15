@@ -34,6 +34,11 @@ class ChatService:
         # 3. Generate
         context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
         
+        # DEBUG: Log the context to see what the LLM is actually seeing
+        print("--- CHAT CONTEXT START ---", flush=True)
+        print(context, flush=True)
+        print("--- CHAT CONTEXT END ---", flush=True)
+        
         prompt = ChatPromptTemplate.from_template("""
         You are an intelligent AI Learning Assistant. Your goal is to help users learn about AI Application Development.
         
@@ -56,11 +61,14 @@ class ChatService:
           [访问链接](URL)
         - Do NOT repeat the title in the link text.
         - If the user asks a technical question, synthesize the answer from the context and cite sources using [1], [2] notation.
-        - **IMPORTANT FOR VIDEO CITATIONS:** If the retrieved information comes from a YouTube video transcript (Type: Video) and the content contains timestamps (e.g., [00:02]), you MUST include the timestamp in your citation.
-          - Format: 来源[视频名称] [MM:SS]
-          - **Link Formatting:** When providing the link to the video, append the `t` parameter to the URL to deep link to the specific time. Convert the timestamp [MM:SS] to seconds or use `MmSs` format.
-            - Example: If URL is `https://www.youtube.com/watch?v=xyz` and timestamp is `[02:05]`, the link should be `https://www.youtube.com/watch?v=xyz&t=2m05s` or `https://www.youtube.com/watch?v=xyz&t=125s`.
+        - **IMPORTANT FOR VIDEO CITATIONS:** If the retrieved information comes from a YouTube video transcript (Type: Video) and the content contains timestamps (e.g., [00:02] or [01:05:30]), you MUST include the timestamp in your citation.
+          - Format: 来源[视频名称] [HH:MM:SS] or [MM:SS]
+          - **Link Formatting:** When providing the link to the video, append the `t` parameter to the URL.
+            - Convert [MM:SS] to `MmSs` (e.g., [15:30] -> `15m30s`).
+            - Convert [HH:MM:SS] to `HhMmSs` (e.g., [01:05:30] -> `1h5m30s`).
+            - Convert [HH:MM:SS] to `HhMmSs` (e.g., [01:05:30] -> `1h5m30s`).
             - Citation Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])... [观看视频](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=15m30s)"
+        - **Anti-Hallucination:** Do NOT estimate or interpolate timestamps (e.g., do not invent [37:15] if the text says [37:10]). ALWAYS use the EXACT timestamp that appears at the **start** of the line/segment where the information is found.
         
         Answer:
         """)
@@ -96,6 +104,11 @@ class ChatService:
         
         # 3. Generate
         context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
+
+        # DEBUG: Log the context
+        print("--- CHAT CONTEXT START (SYNC) ---", flush=True)
+        print(context, flush=True)
+        print("--- CHAT CONTEXT END (SYNC) ---", flush=True)
         
         prompt = ChatPromptTemplate.from_template("""
         You are an intelligent AI Learning Assistant. Your goal is to help users learn about AI Application Development.
@@ -119,9 +132,11 @@ class ChatService:
           [访问链接](URL)
         - Do NOT repeat the title in the link text.
         - If the user asks a technical question, synthesize the answer from the context and cite sources using [1], [2] notation.
-        - **IMPORTANT FOR VIDEO CITATIONS:** If the retrieved information comes from a YouTube video transcript (Type: Video) and the content contains timestamps (e.g., [00:02]), you MUST include the timestamp in your citation.
-          - Format: 来源[视频名称] [MM:SS]
-          - Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])..."
+        - **IMPORTANT FOR VIDEO CITATIONS:** If the retrieved information comes from a YouTube video transcript (Type: Video) and the content contains timestamps (e.g., [00:02] or [01:05:30]), you MUST include the timestamp in your citation.
+          - Format: 来源[视频名称] [HH:MM:SS] or [MM:SS]
+          - Format: 来源[视频名称] [HH:MM:SS] or [MM:SS]
+          - Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [01:15:30])..."
+        - **Anti-Hallucination:** Do NOT estimate or interpolate timestamps. ALWAYS use the EXACT timestamp that appears at the **start** of the line/segment where the information is found.
         
         Answer:
         """)
