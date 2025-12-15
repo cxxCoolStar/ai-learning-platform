@@ -301,6 +301,12 @@ class YouTubeCrawler(BaseCrawler):
 
             transcript = await asyncio.to_thread(get_transcript_sync, video_id)
             
+            # Calculate duration from transcript
+            transcript_duration = 0
+            if transcript:
+                last_entry = transcript[-1]
+                transcript_duration = last_entry.start + last_entry.duration
+
             lines = []
             for entry in transcript:
                 # Format: [Start Time] Text
@@ -371,13 +377,58 @@ class YouTubeCrawler(BaseCrawler):
                         if published_at and not is_content_recent(published_at):
                             logger.warning(f"Video {video_id} published on {published_at} is older than 3 months. Skipping.")
                             raise ValueError("Content is older than 3 months")
+
+                    # Duration Extraction (PT44S, PT1M30S)
+                    duration_meta = soup.find('meta', attrs={'itemprop': 'duration'})
+                    duration = None
+                    if duration_meta:
+                        iso_duration = duration_meta.get('content', '')
+                        # Parse simplified ISO 8601 duration
+                        import re
+                        match = re.search(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', iso_duration)
+                        if match:
+                            h, m, s = match.groups()
+                            h = int(h) if h else 0
+                            m = int(m) if m else 0
+                            s = int(s) if s else 0
+                            duration = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+
+                    # Fallback: approxDurationMs or lengthSeconds
+                    if not duration and resp.text:
+                         # Try approxDurationMs
+                         ms_match = re.search(r'"approxDurationMs"\s*:\s*"(\d+)"', resp.text)
+                         if ms_match:
+                             ms = int(ms_match.group(1))
+                             seconds = ms // 1000
+                             h = seconds // 3600
+                             m = (seconds % 3600) // 60
+                             s = seconds % 60
+                             duration = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+                         else:
+                             # Try lengthSeconds
+                             sec_match = re.search(r'"lengthSeconds"\s*:\s*"(\d+)"', resp.text)
+                             if sec_match:
+                                 seconds = int(sec_match.group(1))
+                                 h = seconds // 3600
+                                 m = (seconds % 3600) // 60
+                                 s = seconds % 60
+                                 duration = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+
+                    # Fallback: Transcript Duration
+                    if not duration and 'transcript_duration' in locals() and transcript_duration > 0:
+                         seconds = int(transcript_duration)
+                         h = seconds // 3600
+                         m = (seconds % 3600) // 60
+                         s = seconds % 60
+                         duration = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
+                            
         except Exception as e:
             if "older than 3 months" in str(e):
                 raise e
             logger.warning(f"Failed to fetch metadata for {url}: {e}")
 
         # Combine Transcript into Content
-        content = f"Video Title: {title}\nAuthor: {author}\n\nDescription:\n{description}\n\nTranscript:\n{transcript_text}"
+        content = f"Video Title: {title}\nAuthor: {author}\nDuration: {duration or 'Unknown'}\n\nDescription:\n{description}\n\nTranscript:\n{transcript_text}"
 
         return {
             "title": title,
@@ -386,7 +437,8 @@ class YouTubeCrawler(BaseCrawler):
             "type": "Video",
             "author": author,
             "description": description,
-            "published_at": published_at
+            "published_at": published_at,
+            "duration": duration
         }
 
 class CrawlerFactory:

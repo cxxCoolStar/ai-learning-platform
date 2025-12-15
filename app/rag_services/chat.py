@@ -32,7 +32,7 @@ class ChatService:
         docs = await asyncio.to_thread(self.retriever.search, user_query, strategy.value)
         
         # 3. Generate
-        context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
+        context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nDuration: {d.metadata.get('duration', 'N/A')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
         
         # DEBUG: Log the context to see what the LLM is actually seeing
         print("--- CHAT CONTEXT START ---", flush=True)
@@ -69,6 +69,7 @@ class ChatService:
             - Convert [HH:MM:SS] to `HhMmSs` (e.g., [01:05:30] -> `1h5m30s`).
             - Citation Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [15:30])... [观看视频](https://www.youtube.com/watch?v=zjkBMFhNj_g&t=15m30s)"
         - **Anti-Hallucination:** Do NOT estimate or interpolate timestamps (e.g., do not invent [37:15] if the text says [37:10]). ALWAYS use the EXACT timestamp that appears at the **start** of the line/segment where the information is found.
+        - **Duration Constraint:** Check the "Duration" field of the source. If a timestamp (e.g. [05:00]) exceeds the video duration (e.g. 00:44), it is HALUCINATED or from a mismatched source. DO NOT CITE IT. Instead, cite the source title without a timestamp.
         
         Answer:
         """)
@@ -103,7 +104,7 @@ class ChatService:
         docs = self.retriever.search(user_query, strategy.value)
         
         # 3. Generate
-        context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
+        context = "\n\n".join([f"[{i+1}] Title: {d.metadata.get('title', 'Unknown')}\nURL: {d.metadata.get('url', 'N/A')}\nType: {d.metadata.get('type', 'Unknown')}\nDuration: {d.metadata.get('duration', 'N/A')}\nContent: {d.page_content}" for i, d in enumerate(docs)])
 
         # DEBUG: Log the context
         print("--- CHAT CONTEXT START (SYNC) ---", flush=True)
@@ -137,6 +138,7 @@ class ChatService:
           - Format: 来源[视频名称] [HH:MM:SS] or [MM:SS]
           - Example: "...as explained by Andrej Karpathy (来源[Intro to LLMs] [01:15:30])..."
         - **Anti-Hallucination:** Do NOT estimate or interpolate timestamps. ALWAYS use the EXACT timestamp that appears at the **start** of the line/segment where the information is found.
+        - **Duration Constraint:** Check the "Duration" field of the source. If a timestamp (e.g. [05:00]) exceeds the video duration (e.g. 00:44), it is HALUCINATED or from a mismatched source. DO NOT CITE IT. Instead, cite the source title without the timestamp.
         
         Answer:
         """)
