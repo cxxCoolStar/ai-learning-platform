@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sendChatMessageStream } from '../api';
 
-const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, onClose, onOpen }) => {
+const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, onClose, onOpen, mode = 'floating' }) => {
     // Internal state for standalone usage, but controlled by props if provided
     const [internalIsOpen, setInternalIsOpen] = useState(false);
 
@@ -149,37 +149,45 @@ const ChatWindow = ({ isOpen: externalIsOpen, initialMessage, initialQuestions, 
         setInput(question);
     };
 
+    const isSidebar = mode === 'sidebar';
+
     return (
         <>
-            {/* Floating Button - Always render, visibility controlled by CSS opacity/scale */}
-            <button
-                onClick={handleOpen}
-                className={`fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all flex items-center justify-center group z-40 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
-                    }`}
-            >
-                <MessageSquare className="w-7 h-7 group-hover:scale-110 transition-transform" />
-                <span className="absolute -top-12 right-0 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    AI助手搜索
-                </span>
-            </button>
+            {/* Floating Button - Only show in floating mode */}
+            {!isSidebar && (
+                <button
+                    onClick={handleOpen}
+                    className={`fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all flex items-center justify-center group z-40 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
+                        }`}
+                >
+                    <MessageSquare className="w-7 h-7 group-hover:scale-110 transition-transform" />
+                    <span className="absolute -top-12 right-0 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        AI助手搜索
+                    </span>
+                </button>
+            )}
 
             {/* Chat Window */}
             <div
-                className={`fixed bottom-8 right-8 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col transition-all duration-300 z-50 overflow-hidden ${isOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-10 pointer-events-none'
-                    }`}
-                style={{
+                className={isSidebar
+                    ? `w-full h-full flex flex-col bg-white border-l border-slate-200`
+                    : `fixed bottom-8 right-8 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col transition-all duration-300 z-50 overflow-hidden ${isOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-10 pointer-events-none'}`
+                }
+                style={isSidebar ? {} : {
                     width: `${size.width}px`,
                     height: `${size.height}px`,
                     maxHeight: 'calc(100vh - 4rem)',
                     maxWidth: 'calc(100vw - 2rem)'
                 }}
             >
-                {/* Resize Handle (Top-Left corner for bottom-right fixed window) */}
-                <div
-                    className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-50 hover:bg-slate-200 rounded-br transition-colors"
-                    onMouseDown={startResize}
-                    title="调整大小"
-                />
+                {/* Resize Handle - Only in floating mode */}
+                {!isSidebar && (
+                    <div
+                        className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-50 hover:bg-slate-200 rounded-br transition-colors"
+                        onMouseDown={startResize}
+                        title="调整大小"
+                    />
+                )}
 
                 {/* Header */}
                 <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center shrink-0 cursor-move"
